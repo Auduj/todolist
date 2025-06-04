@@ -470,7 +470,13 @@ a:hover {
   padding: var(--space-md);
   height: fit-content; /* S'adapte au contenu */
   position: sticky;
-  top: calc(var(--space-lg) + 70px); /* Ajuster en fonction de la hauteur du header (header padding + content padding + approx height) */
+  /* Ajuster en fonction de la hauteur du header (header padding + content padding + approx height) */
+  /* (70px est une estimation, pourrait être plus dynamique si le header est flexible) */
+  /* header padding: var(--space-md) soit 16px */
+  /* header-content padding: var(--space-sm) soit 8px. Total 16+8+8 = 32px top/bottom pour le contenu glass */
+  /* Plus la hauteur intrinsèque du contenu du header. ~40px pour logo/boutons */
+  /* Donc, top: (16px + 32px + 40px) + space-lg(24px) ~= 112px */
+  top: calc( (var(--space-md) * 2) + (var(--space-sm) * 2) + 40px + var(--space-lg) ); /* Ajusté */
   transition: transform var(--duration-slow) var(--ease-standard), opacity var(--duration-slow) var(--ease-standard);
 }
 .sidebar-analytics.collapsed {
@@ -492,6 +498,7 @@ a:hover {
 .sidebar-toggle { /* Already a .btn, so inherits base styles */
   font-size: var(--font-size-lg);
   padding: var(--space-xs); /* Smaller padding for icon-only button */
+  /* Styles pour quand il est un déclencheur pour la sidebar cachée sont ci-dessous */
 }
 .completion-score {
   text-align: center;
@@ -803,7 +810,8 @@ a:hover {
   box-shadow: var(--shadow-soft);
   transition: transform var(--duration-normal) var(--ease-standard), 
               box-shadow var(--duration-normal) var(--ease-standard),
-              opacity var(--duration-normal) var(--ease-standard);
+              opacity var(--duration-normal) var(--ease-standard),
+              border-left-color var(--duration-normal) var(--ease-standard); /* Added for due date color */
   animation: task-appear var(--duration-slow) var(--ease-standard);
 }
 @keyframes task-appear {
@@ -875,19 +883,28 @@ a:hover {
 }
 .task-meta {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column; /* Changed to column for due date */
+  align-items: flex-start; /* Align items to start */
   margin-top: var(--space-sm);
   font-size: var(--font-size-xs);
   opacity: 0.8;
   color: var(--color-text-secondary);
 }
+.task-meta > div:first-child { /* Container for category and created date */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: var(--space-xs); /* Space before due date */
+}
+
 .task-category {
   background-color: color-mix(in srgb, var(--color-text) 5%, transparent);
   padding: 2px var(--space-sm);
   border-radius: var(--radius-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text); /* Ensure category text is readable */
+  margin-right: var(--space-sm);
 }
 [data-color-scheme="dark"] .task-category {
   background-color: color-mix(in srgb, var(--dark-text) 10%, transparent);
@@ -895,6 +912,7 @@ a:hover {
 .task-actions {
   display: flex;
   gap: var(--space-xs);
+  margin-left: auto; /* Push actions to the right */
 }
 .task-action-btn { /* Already a .btn */
   padding: var(--space-xs);
@@ -1321,12 +1339,13 @@ a:hover {
     width: 100%;
     position: static; 
     margin-bottom: var(--space-lg);
-    transform: translateX(0) !important;
-    opacity: 1 !important;
+    transform: translateX(0) !important; /* Override sticky transform */
+    opacity: 1 !important; /* Override sticky opacity */
     max-width: none;
     top: auto; /* Reset sticky top */
   }
-  .sidebar-toggle { display: none; } 
+  /* Le .sidebar-toggle est toujours dans le header de la sidebar.
+     Sa classe .collapsed-trigger le repositionnera si la sidebar est cachée. */
 }
 
 @media (max-width: 768px) {
@@ -1403,4 +1422,102 @@ a:hover {
   --aquamarine-rgb: 0, 207, 200;
   --priority-low-rgb: 68, 175, 105;
   --priority-critical-rgb: 191, 25, 34;
+}
+
+/* Input pour date d'échéance */
+.task-input-premium[type="datetime-local"] {
+  min-width: 200px; /* Ajuster selon besoin */
+  flex-basis: 200px; /* Pour aider le flex wrap */
+  flex-grow: 0.5; /* Moins gourmand que le titre */
+}
+
+/* Style pour le bouton de la sidebar quand elle est cachée */
+.sidebar-toggle.collapsed-trigger {
+  position: fixed;
+  left: 0; /* Collé à gauche */
+  /* Le top doit être calculé pour être sous le header et la toolbar si elle est sticky aussi */
+  /* top: calc(var(--space-lg) + HauteurDuHeader + HauteurToolbar + var(--space-md) ); */
+  /* Simplification pour l'exemple, peut nécessiter ajustement précis */
+  top: calc( (var(--space-md) * 2) + (var(--space-sm) * 2) + 40px + var(--space-lg) + var(--space-md) + 60px ); /* approx header + toolbar + padding */
+  z-index: var(--z-sticky); /* Juste en dessous du header s'il a un z-index plus élevé, sinon égal ou supérieur */
+  background-color: var(--color-primary);
+  color: var(--color-btn-primary-text);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0; /* Coins arrondis sur un côté */
+  box-shadow: var(--shadow-medium);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-primary-hover);
+  transition: transform 0.3s var(--ease-standard), background-color 0.3s var(--ease-standard);
+}
+.sidebar-toggle.collapsed-trigger:hover {
+  background-color: var(--color-primary-hover);
+  color: var(--color-btn-primary-text); /* S'assurer que la couleur du texte reste correcte */
+  transform: translateX(2px);
+}
+
+
+/* Task Item - Due Date & Status */
+.task-meta .task-due-date {
+  display: block;
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
+  margin-top: var(--space-xs);
+  width: 100%; /* Pour qu'il prenne la largeur */
+}
+.task-item.overdue .task-meta .task-due-date {
+  color: var(--priority-critical);
+  font-weight: var(--font-weight-semibold);
+  opacity: 1;
+}
+.task-item.due-soon .task-meta .task-due-date {
+  color: var(--priority-high);
+  font-weight: var(--font-weight-medium);
+  opacity: 0.9;
+}
+.task-item.overdue {
+  border-left-color: var(--priority-critical) !important; /* S'assurer que ça override les priorités */
+  animation: pulse-border-critical 1.5s infinite alternate;
+}
+.task-item.due-soon {
+  border-left-color: var(--priority-high) !important; /* S'assurer que ça override les priorités */
+  animation: pulse-border-high 2s infinite alternate;
+}
+
+@keyframes pulse-border-critical {
+  from { box-shadow: var(--shadow-soft), 0 0 5px 0px var(--priority-critical); }
+  to { box-shadow: var(--shadow-medium), 0 0 10px 3px var(--priority-critical); }
+}
+@keyframes pulse-border-high {
+  from { box-shadow: var(--shadow-soft), 0 0 4px 0px var(--priority-high); }
+  to { box-shadow: var(--shadow-medium), 0 0 8px 2px var(--priority-high); }
+}
+
+
+/* Status Bar - Clock */
+.status-bar .clock {
+  font-weight: var(--font-weight-medium);
+  min-width: 70px; /* Pour éviter les sauts de layout */
+  text-align: center;
+}
+
+/* Responsive pour le bouton de sidebar caché */
+@media (max-width: 1200px) {
+  .sidebar-toggle.collapsed-trigger {
+    /* Le top doit être suffisant pour être sous le header ET la toolbar sur mobile */
+    /* Estimation hauteur header mobile (flexible) ~120px */
+    /* Estimation hauteur toolbar mobile ~60px */
+    /* Total ~180px + padding */
+    top: calc(120px + 60px + var(--space-lg)); /* Ajuster précisément si nécessaire */
+  }
+}
+@media (max-width: 768px) {
+    .sidebar-toggle.collapsed-trigger {
+      top: calc(160px + 60px + var(--space-md)); /* Encore plus de marge pour header plus haut */
+    }
+    .add-task-form { /* Pour que le champ date ne soit pas trop petit */
+        gap: var(--space-md);
+    }
+    .task-input-premium[type="datetime-local"] {
+        flex-grow: 1; /* Prend toute la largeur sur mobile */
+        min-width: 100%;
+    }
 }

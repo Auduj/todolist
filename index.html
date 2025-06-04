@@ -77,10 +77,11 @@
     <!-- Main Interface -->
     <div class="main-container">
         <!-- Sidebar -->
-        <aside class="sidebar-analytics glass-effect" id="sidebar"> <!-- Applied glass-effect here -->
+        <aside class="sidebar-analytics glass-effect" id="sidebar">
             <div class="sidebar-header">
                 <h3>Dashboard</h3>
-                <button class="sidebar-toggle btn" id="sidebarToggle" title="Basculer la barre latérale">
+                <!-- Le bouton reste ici, le style .collapsed-trigger le repositionnera -->
+                <button class="sidebar-toggle btn" id="sidebarToggle" title="Masquer la barre latérale">
                     <i class="fas fa-chevron-left"></i>
                 </button>
             </div>
@@ -120,7 +121,6 @@
                 <div class="categories-stats">
                     <h4>Par Catégorie</h4>
                     <div class="category-list" id="categoryStats">
-                        <!-- Categories populated by JS -->
                          <p class="empty-column-text">Aucune tâche catégorisée.</p>
                     </div>
                 </div>
@@ -130,9 +130,10 @@
         <!-- Tasks Area -->
         <main class="tasks-area">
             <!-- Quick Add Form -->
-            <div class="quick-add-section glass-effect" id="quickAddSection"> <!-- Applied glass-effect here -->
+            <div class="quick-add-section glass-effect" id="quickAddSection">
                 <div class="add-task-form">
                     <input type="text" id="taskInput" placeholder="Nouvelle tâche... (N)" class="task-input-premium">
+                    <input type="datetime-local" id="taskDueDate" class="task-input-premium" title="Date et heure d'échéance">
                     <select id="categorySelect" class="category-select custom-select">
                         <option value="">Catégorie</option>
                         <option value="Travail">💼 Travail</option>
@@ -157,7 +158,7 @@
 
             <!-- Search Bar -->
             <div class="search-section" id="searchSection" style="display: none;">
-                <div class="search-bar glass-effect"> <!-- Applied glass-effect here -->
+                <div class="search-bar glass-effect">
                     <input type="text" id="searchInput" placeholder="Rechercher dans vos tâches... (Esc pour fermer)" class="search-input">
                     <button id="clearSearch" class="btn-clear btn" title="Effacer la recherche">
                         <i class="fas fa-times"></i>
@@ -167,7 +168,7 @@
 
             <!-- Kanban Columns -->
             <div class="kanban-board">
-                <div class="column-container glass-effect" data-column="todo"> <!-- Applied glass-effect here -->
+                <div class="column-container glass-effect" data-column="todo">
                     <div class="column-header">
                         <div class="column-title">
                             <i class="fas fa-list-ul"></i>
@@ -180,7 +181,7 @@
                     </div>
                 </div>
 
-                <div class="column-container glass-effect" data-column="inprogress"> <!-- Applied glass-effect here -->
+                <div class="column-container glass-effect" data-column="inprogress">
                     <div class="column-header">
                         <div class="column-title">
                             <i class="fas fa-spinner"></i>
@@ -193,7 +194,7 @@
                     </div>
                 </div>
 
-                <div class="column-container glass-effect" data-column="done"> <!-- Applied glass-effect here -->
+                <div class="column-container glass-effect" data-column="done">
                     <div class="column-header">
                         <div class="column-title">
                             <i class="fas fa-check-double"></i>
@@ -212,7 +213,7 @@
     <!-- Modals -->
     <!-- AI Modal -->
     <div class="modal-overlay" id="aiModal">
-        <div class="modal-content glass-effect ai-modal"> <!-- Applied glass-effect here -->
+        <div class="modal-content glass-effect ai-modal">
             <div class="modal-header">
                 <h3><i class="fas fa-robot"></i> Assistant IA</h3>
                 <button class="modal-close btn" data-modal="aiModal" title="Fermer">
@@ -222,21 +223,21 @@
             <div class="modal-body">
                 <p class="modal-description">Optimisez votre productivité avec l'intelligence artificielle.</p>
                 <div class="ai-features">
-                    <button class="ai-feature-btn btn" id="generateSubtasksModalBtn"> <!-- Changed ID -->
+                    <button class="ai-feature-btn btn" id="generateSubtasksModalBtn">
                         <i class="fas fa-sitemap"></i>
                         <div>
                             <strong>Générer des sous-tâches</strong>
                             <p>L'IA décompose votre tâche active en étapes.</p>
                         </div>
                     </button>
-                    <button class="ai-feature-btn btn" id="categorizeTaskModalBtn"> <!-- Changed ID -->
+                    <button class="ai-feature-btn btn" id="categorizeTaskModalBtn">
                         <i class="fas fa-tags"></i>
                         <div>
                             <strong>Catégoriser automatiquement</strong>
                             <p>Classification intelligente de la tâche active.</p>
                         </div>
                     </button>
-                    <button class="ai-feature-btn btn" id="suggestPrioritiesModalBtn"> <!-- Changed ID -->
+                    <button class="ai-feature-btn btn" id="suggestPrioritiesModalBtn">
                         <i class="fas fa-sort-amount-up"></i>
                         <div>
                             <strong>Suggérer les priorités</strong>
@@ -253,7 +254,7 @@
 
     <!-- Reset Modal -->
     <div class="modal-overlay" id="resetModal">
-        <div class="modal-content glass-effect reset-modal"> <!-- Applied glass-effect here -->
+        <div class="modal-content glass-effect reset-modal">
             <div class="modal-header">
                 <h3><i class="fas fa-exclamation-triangle"></i> Réinitialisation Complète</h3>
                  <button class="modal-close btn" data-modal="resetModal" title="Fermer">
@@ -291,6 +292,10 @@
                     <input type="text" id="detailsTaskTitle" class="form-control">
                 </div>
                 <div class="form-group">
+                    <label for="detailsTaskDueDate" class="form-label">Date d'échéance :</label>
+                    <input type="datetime-local" id="detailsTaskDueDate" class="form-control">
+                </div>
+                <div class="form-group">
                     <label for="detailsTaskCategory" class="form-label">Catégorie :</label>
                     <select id="detailsTaskCategory" class="custom-select">
                         <option value="">Aucune</option>
@@ -315,7 +320,6 @@
                 <div class="subtasks-section">
                     <h4><i class="fas fa-list-check"></i> Sous-tâches</h4>
                     <div id="detailsSubtaskList" class="details-subtask-list">
-                        <!-- Subtasks will be populated by JS -->
                         <p class="empty-column-text">Aucune sous-tâche.</p>
                     </div>
                     <div class="add-subtask-form">
@@ -338,7 +342,11 @@
     <div class="notifications-container" id="notificationsContainer"></div>
 
     <!-- Status Bar -->
-    <div class="status-bar"> <!-- Removed glass-effect for better readability/less clutter -->
+    <div class="status-bar">
+        <div class="status-item">
+            <i class="fas fa-clock"></i>
+            <span class="clock" id="realTimeClock">--:--:--</span>
+        </div>
         <div class="status-item">
             <i class="fas fa-wifi" id="connectionStatus"></i>
             <span id="connectionStatusText">En ligne</span>

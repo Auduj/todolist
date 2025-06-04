@@ -1,6 +1,5 @@
 // TodoList IA Core - Application simplifiée et focalisée
-// Refonte UI/UX 2025 - Ajout de la modale de détails de tâche
-// URL Backend Render adaptée
+// Refonte UI/UX 2025 - Ajout de la modale de détails de tâche, calendrier, horloge, alertes
 
 class TodoListCore {
     constructor() {
@@ -17,23 +16,21 @@ class TodoListCore {
             productivityScore: 0
         };
         
-        // Utilisation directe de l'URL Render fournie
         this.backendUrl = 'https://todolist-backend-tqcr.onrender.com'; 
 
         this.saveDebounceTimer = null;
         this.searchDebounceTimer = null;
         this.aiCache = new Map();
         this.cacheExpiry = 5 * 60 * 1000; 
-        this.currentEditingTaskId = null; 
+        this.currentEditingTaskId = null;
+        this.clockInterval = null;
+        this.dueDateCheckInterval = null;
+        this.boundToggleSidebar = null; // Pour le removeEventListener
     }
 
     init() {
-        console.log('Initialisation de TodoList IA Core (Refonte 2025 avec modale détails)...');
+        console.log('Initialisation de TodoList IA Core (Refonte 2025 avec calendrier/alertes)...');
         
-        // this.backendUrl est maintenant défini dans le constructeur.
-        console.log(`Backend URL is: ${this.backendUrl}`);
-
-        // Vérification simplifiée pour le placeholder ou format d'URL invalide.
         if (this.backendUrl === 'https://VOTRE_APP_RENDER.onrender.com' || !this.backendUrl.startsWith('https://')) {
             console.warn("URL du backend potentiellement non configurée ! Les fonctionnalités IA pourraient ne pas fonctionner.");
             this.showNotification("Backend non configuré ou URL invalide. Fonctions IA indisponibles.", "error", 0);
@@ -42,17 +39,84 @@ class TodoListCore {
         this.updateAIStatus();
         this.loadData();
         this.setupEventListeners();
+        this.initClock(); 
+        this.startDueDateChecker(); 
         this.updateUI();
         this.startAutoSave();
         this.setupKeyboardShortcuts();
-        this.showNotification('Bienvenue dans TodoList IA (Refonte 2025) !', 'info');
+        this.showNotification('Bienvenue dans TodoList IA (Refonte 2025 avec alertes) !', 'info');
     }
+
+    // === CLOCK & DUE DATE CHECKER ===
+    initClock() {
+        const clockEl = document.getElementById('realTimeClock');
+        if (!clockEl) return;
+
+        const updateClock = () => {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            clockEl.textContent = timeString;
+        };
+        
+        if (this.clockInterval) clearInterval(this.clockInterval);
+        this.clockInterval = setInterval(updateClock, 1000);
+        updateClock(); 
+    }
+
+    startDueDateChecker() {
+        if (this.dueDateCheckInterval) clearInterval(this.dueDateCheckInterval);
+        this.dueDateCheckInterval = setInterval(() => this.checkDueDates(), 60 * 1000); // Toutes les minutes
+        this.checkDueDates(); 
+    }
+
+    checkDueDates() {
+        const now = new Date();
+        const alertThreshold = 15 * 60 * 1000; // 15 minutes en millisecondes
+        let changed = false;
+
+        this.tasks.forEach(task => {
+            if (task.column === 'done' || !task.dueDate) return;
+
+            const dueDate = new Date(task.dueDate);
+            if (isNaN(dueDate.getTime())) return; 
+
+            const timeDiff = dueDate.getTime() - now.getTime();
+            
+            // Vérifier si une alerte a déjà été envoyée pour CETTE date d'échéance spécifique
+            const alertAlreadySentForThisDueDate = task.alertSentForDueDate === task.dueDate;
+
+            if (timeDiff < 0 && !alertAlreadySentForThisDueDate) { // En retard
+                this.showNotification(`Tâche "${this.escapeHtml(task.title)}" est en retard ! Échéance: ${this.formatDueDate(task.dueDate)}`, 'error', 10000);
+                task.alertSentForDueDate = task.dueDate; 
+                changed = true;
+            } else if (timeDiff > 0 && timeDiff <= alertThreshold && !alertAlreadySentForThisDueDate) { // Arrive à échéance bientôt
+                this.showNotification(`Tâche "${this.escapeHtml(task.title)}" arrive à échéance bientôt (${this.formatDueDate(task.dueDate)})`, 'warning', 10000);
+                task.alertSentForDueDate = task.dueDate;
+                changed = true;
+            }
+        });
+        if (changed) {
+            this.saveData(); 
+            this.updateUI(); // Mettre à jour l'UI si des alertes ont été envoyées ou des états ont changé
+        }
+    }
+    
+    formatDueDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Date invalide';
+        return date.toLocaleString('fr-FR', { 
+            day: '2-digit', month: '2-digit', year: 'numeric', 
+            hour: '2-digit', minute: '2-digit' 
+        });
+    }
+
 
     // === DATA MANAGEMENT ===
     loadData() {
         try {
-            const savedTasks = localStorage.getItem('todocore_tasks_2025_v2'); 
-            const savedMetrics = localStorage.getItem('todocore_metrics_2025_v2');
+            const savedTasks = localStorage.getItem('todocore_tasks_2025_v3'); 
+            const savedMetrics = localStorage.getItem('todocore_metrics_2025_v3');
             
             if (savedTasks) {
                 this.tasks = JSON.parse(savedTasks);
@@ -73,8 +137,8 @@ class TodoListCore {
         
         this.saveDebounceTimer = setTimeout(() => {
             try {
-                localStorage.setItem('todocore_tasks_2025_v2', JSON.stringify(this.tasks));
-                localStorage.setItem('todocore_metrics_2025_v2', JSON.stringify(this.metrics));
+                localStorage.setItem('todocore_tasks_2025_v3', JSON.stringify(this.tasks));
+                localStorage.setItem('todocore_metrics_2025_v3', JSON.stringify(this.metrics));
                 this.updateSyncStatus(true, 'Sauvegardé');
             } catch (error) {
                 console.error('Error saving data:', error);
@@ -90,7 +154,7 @@ class TodoListCore {
     }
 
     // === TASK MANAGEMENT ===
-    async addTask(title, category = '', priority = '', column = 'todo') {
+    async addTask(title, category = '', priority = '', column = 'todo', dueDate = null) {
         if (!title.trim()) {
             this.showNotification('Veuillez saisir une tâche', 'warning');
             return;
@@ -104,6 +168,8 @@ class TodoListCore {
             column,
             createdAt: new Date().toISOString(),
             completedAt: null,
+            dueDate: dueDate || null, 
+            alertSentForDueDate: null, 
             subtasks: [], 
             aiGenerated: false
         };
@@ -130,6 +196,7 @@ class TodoListCore {
         this.saveData();
         this.updateUI();
         this.showNotification(`Tâche "${this.escapeHtml(title)}" ajoutée`, 'success');
+        this.checkDueDates(); 
         return task;
     }
 
@@ -152,6 +219,7 @@ class TodoListCore {
         this.updateProductivityScore();
         this.saveData();
         this.updateUI();
+        this.checkDueDates(); // Vérifier les alertes après déplacement
     }
 
     deleteTask(taskId, fromModal = false) {
@@ -176,6 +244,7 @@ class TodoListCore {
         } else {
             this.showUndoNotification(`Tâche "${this.escapeHtml(task.title)}" supprimée`, task, taskIndex);
         }
+        this.checkDueDates(); // Vérifier les alertes après suppression
     }
 
     restoreTask(task, index) {
@@ -187,6 +256,7 @@ class TodoListCore {
         this.saveData();
         this.updateUI();
         this.showNotification('Tâche restaurée', 'success');
+        this.checkDueDates(); // Vérifier les alertes après restauration
     }
     
     // === TASK DETAILS MODAL ===
@@ -199,6 +269,7 @@ class TodoListCore {
         document.getElementById('detailsTaskTitle').value = task.title;
         document.getElementById('detailsTaskCategory').value = task.category || "";
         document.getElementById('detailsTaskPriority').value = task.priority || "Normale";
+        document.getElementById('detailsTaskDueDate').value = task.dueDate ? new Date(task.dueDate).toISOString().substring(0, 16) : ""; 
         
         this.renderSubtasksInModal(task.subtasks || []);
 
@@ -237,6 +308,9 @@ class TodoListCore {
         const newTitle = document.getElementById('detailsTaskTitle').value.trim();
         const newCategory = document.getElementById('detailsTaskCategory').value;
         const newPriority = document.getElementById('detailsTaskPriority').value;
+        const newDueDateValue = document.getElementById('detailsTaskDueDate').value;
+        const newDueDate = newDueDateValue ? new Date(newDueDateValue).toISOString() : null;
+
 
         if (!newTitle) {
             this.showNotification("Le titre de la tâche ne peut pas être vide.", "warning");
@@ -247,11 +321,17 @@ class TodoListCore {
         task.category = newCategory;
         task.priority = newPriority;
         
+        if (task.dueDate !== newDueDate) { 
+            task.alertSentForDueDate = null; 
+        }
+        task.dueDate = newDueDate; 
+        
         this.saveData();
         this.updateUI();
         this.toggleModal('taskDetailsModal', false);
         this.showNotification("Tâche mise à jour.", "success");
         this.currentEditingTaskId = null;
+        this.checkDueDates(); 
     }
 
     handleAddSubtaskFromModal() {
@@ -295,7 +375,6 @@ class TodoListCore {
     // === ARTIFICIAL INTELLIGENCE (via Backend) ===
     isBackendConfigured() {
         const isPlaceholder = this.backendUrl === 'https://VOTRE_APP_RENDER.onrender.com';
-        // Vérifie simplement si c'est une URL HTTPS valide et non le placeholder.
         return this.backendUrl && this.backendUrl.startsWith('https://') && !isPlaceholder;
     }
     
@@ -665,7 +744,7 @@ class TodoListCore {
     updateUI() {
         this.updateProductivityScore(); 
         this.updateStats();
-        this.updateTaskLists();
+        this.updateTaskLists(); 
         this.updateCounters();
         this.updateCategoryStats();
         this.updateCompletionScoreCircle(); 
@@ -689,7 +768,7 @@ class TodoListCore {
             if (columnTasks.length === 0 && this.searchTerm) {
                 listEl.innerHTML = `<p class="empty-column-text">Aucune tâche ne correspond à "${this.escapeHtml(this.searchTerm)}" dans cette colonne.</p>`;
             } else if (columnTasks.length === 0) {
-                 listEl.innerHTML = `<p class="empty-column-text">Aucune tâche ici. Ajoutez-en une !</p>`;
+                 listEl.innerHTML = `<p class="empty-column-text">Aucune tâche ici${column === 'todo' ? '. Ajoutez-en une !' : '.'}</p>`;
             } else {
                 columnTasks.forEach(task => listEl.appendChild(this.createTaskElement(task)));
             }
@@ -705,6 +784,18 @@ class TodoListCore {
         taskDiv.draggable = true;
         taskDiv.dataset.taskId = task.id;
 
+        if (task.dueDate && task.column !== 'done') {
+            const dueDate = new Date(task.dueDate);
+            const now = new Date();
+            const alertSoonThreshold = 24 * 60 * 60 * 1000; // 24 heures pour "due-soon" visuel, peut être ajusté
+
+            if (dueDate < now) {
+                taskDiv.classList.add('overdue');
+            } else if (dueDate.getTime() - now.getTime() <= alertSoonThreshold ) {
+                taskDiv.classList.add('due-soon');
+            }
+        }
+
         taskDiv.addEventListener('click', (e) => {
             if (e.target.closest('.task-action-btn')) {
                 return;
@@ -712,9 +803,13 @@ class TodoListCore {
             this.showTaskDetailsModal(task.id);
         });
 
-
         const priorityClass = task.priority ? `priority-${task.priority.toLowerCase().replace(/\s+/g, '')}` : '';
         
+        let dueDateHtml = '';
+        if (task.dueDate) {
+            dueDateHtml = `<span class="task-due-date">Échéance: ${this.formatDueDate(task.dueDate)}</span>`;
+        }
+
         taskDiv.innerHTML = `
             <div class="task-header">
                 <div class="task-title">${this.escapeHtml(task.title)}</div>
@@ -726,18 +821,19 @@ class TodoListCore {
                 </div>
             ` : ''}
             <div class="task-meta">
-                <div>
+                 <div> <!-- Container for category and created date -->
                     ${task.category ? `<span class="task-category">${this.escapeHtml(task.category)}</span>` : ''}
-                    <span class="task-date">Créé le: ${new Date(task.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' })}</span>
+                    <span class="task-date">Créé: ${new Date(task.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' })}</span>
+                    <div class="task-actions">
+                        <button class="task-action-btn ai-generate-btn btn" data-task-id="${task.id}" title="Générer sous-tâches IA">
+                            <i class="fas fa-robot"></i>
+                        </button>
+                        <button class="task-action-btn delete-btn btn" data-task-id="${task.id}" title="Supprimer">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="task-actions">
-                    <button class="task-action-btn ai-generate-btn btn" data-task-id="${task.id}" title="Générer sous-tâches IA">
-                        <i class="fas fa-robot"></i>
-                    </button>
-                    <button class="task-action-btn delete-btn btn" data-task-id="${task.id}" title="Supprimer">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
+                ${dueDateHtml}
             </div>
         `;
         taskDiv.querySelector('.ai-generate-btn').addEventListener('click', (e) => {
@@ -908,10 +1004,14 @@ class TodoListCore {
         
         const dismissNotification = () => {
             notification.classList.add('dismiss');
+            // Ensure removal even if animationend doesn't fire (e.g., if element is hidden before animation ends)
+            const removeTimer = setTimeout(() => {
+                 if (notification.parentNode) notification.remove();
+            }, 500); // Duration should be slightly longer than CSS animation
+
             notification.addEventListener('animationend', () => {
-                if (notification.parentNode) { 
-                    notification.remove();
-                }
+                clearTimeout(removeTimer);
+                if (notification.parentNode) notification.remove();
             }, { once: true }); 
         };
 
@@ -951,7 +1051,11 @@ class TodoListCore {
 
         const dismissNotification = () => {
             notification.classList.add('dismiss');
+             const removeTimer = setTimeout(() => {
+                 if (notification.parentNode) notification.remove();
+            }, 500);
             notification.addEventListener('animationend', () => {
+                 clearTimeout(removeTimer);
                  if (notification.parentNode) notification.remove();
             }, { once: true });
         };
@@ -1065,6 +1169,7 @@ class TodoListCore {
     setupEventListeners() {
         document.getElementById('addTaskBtn')?.addEventListener('click', (e) => { e.preventDefault(); this.handleAddTask(); });
         document.getElementById('taskInput')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.handleAddTask(); }});
+        document.getElementById('taskDueDate')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.handleAddTask(); }});
 
         const toolButtons = {
             voiceBtn: () => this.startVoiceRecognition(),
@@ -1075,16 +1180,21 @@ class TodoListCore {
         Object.entries(toolButtons).forEach(([id, handler]) => {
             const btn = document.getElementById(id);
             if(btn) { 
-                if (btn.handler) btn.removeEventListener('click', btn.handler);
+                if (btn.handler) btn.removeEventListener('click', btn.handler); // Remove old if exists
                 btn.handler = (e) => { e.preventDefault(); handler(); }; 
                 btn.addEventListener('click', btn.handler);
             }
         });
 
-
         document.getElementById('themeToggle')?.addEventListener('click', (e) => { e.preventDefault(); this.toggleTheme(); });
         document.getElementById('resetApp')?.addEventListener('click', (e) => { e.preventDefault(); this.showResetModal(); });
-        document.getElementById('sidebarToggle')?.addEventListener('click', (e) => { e.preventDefault(); this.toggleSidebar(); });
+        
+        const sidebarToggleBtn = document.getElementById('sidebarToggle');
+        if (sidebarToggleBtn) {
+             if (this.boundToggleSidebar) sidebarToggleBtn.removeEventListener('click', this.boundToggleSidebar);
+             this.boundToggleSidebar = this.toggleSidebar.bind(this);
+             sidebarToggleBtn.addEventListener('click', this.boundToggleSidebar);
+        }
 
         const searchInput = document.getElementById('searchInput');
         searchInput?.addEventListener('input', (e) => {
@@ -1135,20 +1245,14 @@ class TodoListCore {
             }
         });
 
-
         this.setupDragAndDrop();
     }
 
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
             const activeModal = document.querySelector('.modal-overlay.active');
-            const taskInputFocused = document.activeElement === document.getElementById('taskInput');
-            const searchInputFocused = document.activeElement === document.getElementById('searchInput');
-            const resetInputFocused = document.activeElement === document.getElementById('resetConfirmInput');
-            const detailsTitleFocused = document.activeElement === document.getElementById('detailsTaskTitle');
-            const detailsSubtaskFocused = document.activeElement === document.getElementById('detailsNewSubtaskTitle');
-
-
+            const isInputElementActive = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+            
             if (e.key === 'Escape') {
                 if (activeModal) {
                     e.preventDefault();
@@ -1157,8 +1261,18 @@ class TodoListCore {
                     e.preventDefault();
                     this.toggleSearch(false); 
                 }
+                 // Close sidebar if open and no modal or search is active
+                else if (!document.getElementById('sidebar').classList.contains('collapsed') && window.innerWidth > 1200) { 
+                     e.preventDefault();
+                     this.toggleSidebar();
+                 }
             }
-            if (taskInputFocused || searchInputFocused || resetInputFocused || detailsTitleFocused || detailsSubtaskFocused) return;
+            
+            if (isInputElementActive && document.activeElement.id !== 'taskInput' && document.activeElement.id !== 'searchInput' && document.activeElement.id !== 'resetConfirmInput') {
+                 if(activeModal && document.activeElement.closest('.modal-content')) return; // Allow typing in modal inputs
+                 if(!activeModal) return; // If not in modal, and not one of the main inputs, allow normal behavior
+            }
+
 
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') { 
                 e.preventDefault(); 
@@ -1177,6 +1291,10 @@ class TodoListCore {
                 e.preventDefault();
                 this.startVoiceRecognition();
             }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { // Ctrl/Cmd + B for sidebar
+                e.preventDefault();
+                this.toggleSidebar();
+            }
         });
     }
 
@@ -1185,16 +1303,21 @@ class TodoListCore {
         const titleInput = document.getElementById('taskInput');
         const categorySelect = document.getElementById('categorySelect');
         const prioritySelect = document.getElementById('prioritySelect');
+        const dueDateInput = document.getElementById('taskDueDate'); 
         
         if (!titleInput) return;
         const title = titleInput.value.trim();
         if (!title) { this.showNotification('Veuillez saisir une tâche', 'warning'); return; }
 
-        await this.addTask(title, categorySelect?.value, prioritySelect?.value);
+        const dueDateValue = dueDateInput?.value;
+        const dueDate = dueDateValue ? new Date(dueDateValue).toISOString() : null; 
+
+        await this.addTask(title, categorySelect?.value, prioritySelect?.value, 'todo', dueDate); 
         
         titleInput.value = '';
         if (categorySelect) categorySelect.selectedIndex = 0;
         if (prioritySelect) prioritySelect.selectedIndex = 0;
+        if (dueDateInput) dueDateInput.value = ''; 
         titleInput.focus();
     }
 
@@ -1214,11 +1337,14 @@ class TodoListCore {
     
         if (SouldBeActive) {
             modal.classList.add('active');
-            const firstFocusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-            if (firstFocusable && modalId !== 'taskDetailsModal') firstFocusable.focus(); 
+            // Focus only if it's not the task details modal (which handles its own focus)
+            if (modalId !== 'taskDetailsModal') {
+                const firstFocusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                if (firstFocusable) firstFocusable.focus(); 
+            }
         } else {
             modal.classList.remove('active');
-            if (modalId === 'taskDetailsModal') { // Clear only when closing details modal
+            if (modalId === 'taskDetailsModal') { 
                  this.currentEditingTaskId = null;
             }
         }
@@ -1230,21 +1356,48 @@ class TodoListCore {
 
     toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
-        const toggleIcon = document.querySelector('#sidebarToggle i');
-        if (sidebar && toggleIcon) {
-            const isCollapsed = sidebar.classList.toggle('collapsed');
-            toggleIcon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
-            localStorage.setItem('todocore_sidebar_collapsed_2025_v2', isCollapsed);
+        const toggleBtn = document.getElementById('sidebarToggle'); 
+        
+        if (sidebar && toggleBtn) {
+            const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+            // New state will be the opposite
+            const SouldBeCollapsed = !isCurrentlyCollapsed; 
+            
+            const toggleIcon = toggleBtn.querySelector('i');
+
+            if (SouldBeCollapsed) {
+                sidebar.classList.add('collapsed');
+                toggleIcon.className = 'fas fa-chevron-right';
+                toggleBtn.classList.add('collapsed-trigger'); 
+                toggleBtn.title = "Afficher la barre latérale";
+            } else {
+                sidebar.classList.remove('collapsed');
+                toggleIcon.className = 'fas fa-chevron-left';
+                toggleBtn.classList.remove('collapsed-trigger'); 
+                toggleBtn.title = "Masquer la barre latérale";
+            }
+            localStorage.setItem('todocore_sidebar_collapsed_2025_v3', SouldBeCollapsed); 
         }
     }
     
     loadSidebarState() {
         const sidebar = document.getElementById('sidebar');
-        const toggleIcon = document.querySelector('#sidebarToggle i');
-        const isCollapsed = localStorage.getItem('todocore_sidebar_collapsed_2025_v2') === 'true';
-        if (sidebar && toggleIcon && isCollapsed) {
-            sidebar.classList.add('collapsed');
-            toggleIcon.className = 'fas fa-chevron-right';
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const isCollapsed = localStorage.getItem('todocore_sidebar_collapsed_2025_v3') === 'true'; 
+        
+        if (sidebar && toggleBtn) {
+             const toggleIcon = toggleBtn.querySelector('i');
+            if (isCollapsed) {
+                sidebar.classList.add('collapsed');
+                toggleIcon.className = 'fas fa-chevron-right';
+                toggleBtn.classList.add('collapsed-trigger');
+                toggleBtn.title = "Afficher la barre latérale";
+            } else {
+                sidebar.classList.remove('collapsed'); // Ensure it's not collapsed by default
+                toggleIcon.className = 'fas fa-chevron-left';
+                toggleBtn.classList.remove('collapsed-trigger');
+                toggleBtn.title = "Masquer la barre latérale";
+            }
         }
     }
 
@@ -1276,12 +1429,12 @@ class TodoListCore {
         document.documentElement.setAttribute('data-color-scheme', this.currentTheme);
         const themeIcon = document.querySelector('#themeToggle i');
         if (themeIcon) themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-        localStorage.setItem('todocore_theme_2025_v2', this.currentTheme);
+        localStorage.setItem('todocore_theme_2025_v3', this.currentTheme); // version up
         this.updateCompletionScoreCircle(); 
     }
     
     loadTheme() {
-        const savedTheme = localStorage.getItem('todocore_theme_2025_v2');
+        const savedTheme = localStorage.getItem('todocore_theme_2025_v3'); // version up
         const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         this.currentTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light'); 
         
@@ -1330,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof TodoListCore !== "undefined") {
         window.todoApp = new TodoListCore();
         window.todoApp.loadTheme(); 
-        window.todoApp.loadSidebarState();
+        window.todoApp.loadSidebarState(); // Charger avant init pour que le style soit correct dès le début
         window.todoApp.init();
     } else {
         console.error("TodoListCore is not defined. Check script loading.");

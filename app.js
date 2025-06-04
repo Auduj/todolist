@@ -1,11 +1,13 @@
 // TodoList IA Core - Application simplifiée et focalisée
+// Refonte UI/UX 2025 - Ajout de la modale de détails de tâche
+
 class TodoListCore {
     constructor() {
         this.tasks = [];
         this.categories = ["Travail", "Personnel", "Urgent", "Shopping", "Santé", "Projets"];
         this.priorities = ["Basse", "Normale", "Haute", "Critique"];
         this.columns = ["todo", "inprogress", "done"];
-        this.currentTheme = 'dark';
+        this.currentTheme = 'light';
         this.isVoiceRecording = false;
         this.searchTerm = '';
         this.metrics = {
@@ -14,55 +16,51 @@ class TodoListCore {
             productivityScore: 0
         };
         
-        // URL de votre backend déployé sur Render (ou localhost pour tests)
-        this.backendUrl = 'http://localhost:3001'; // Sera écrasée par la logique dans init() si déployé
+        this.backendUrl = 'https://todolist-backend-tqcr.onrender.com'; 
 
-        // Debounce et cache pour les performances
         this.saveDebounceTimer = null;
         this.searchDebounceTimer = null;
         this.aiCache = new Map();
-        this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
+        this.cacheExpiry = 5 * 60 * 1000; 
+        this.currentEditingTaskId = null; // To keep track of the task being edited in the modal
     }
 
     init() {
-        console.log('Initialisation de TodoList IA Core...');
+        console.log('Initialisation de TodoList IA Core (Refonte 2025 avec modale détails)...');
         
-        const deployedBackendUrl = 'https://todolist-backend-tqcr.onrender.com'; // URL RENDER MISE À JOUR
+        const deployedBackendUrl = 'https://todolist-backend-tqcr.onrender.com';
 
         if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-            if (deployedBackendUrl === 'https://VOTRE_APP_RENDER.onrender.com' || !deployedBackendUrl.startsWith('https://')) { // Vérification plus générique
+            if (deployedBackendUrl === 'https://todolist-backend-tqcr.onrender.com' || !deployedBackendUrl.startsWith('https://')) {
                 console.warn("URL du backend potentiellement non configurée pour le déploiement ! Les fonctionnalités IA pourraient ne pas fonctionner.");
-                this.showNotification("Backend non configuré ou URL invalide. Fonctions IA indisponibles.", "error", 0); // Notification persistante
+                this.showNotification("Backend non configuré ou URL invalide. Fonctions IA indisponibles.", "error", 0);
             }
             this.backendUrl = deployedBackendUrl; 
-            console.log(`Backend URL set to: ${this.backendUrl} (for deployed frontend)`);
-        } else {
-            console.log(`Backend URL set to: ${this.backendUrl} (for local development)`);
         }
-
+        
+        this.updateAIStatus();
         this.loadData();
         this.setupEventListeners();
         this.updateUI();
         this.startAutoSave();
         this.setupKeyboardShortcuts();
-        this.showNotification('Bienvenue dans TodoList IA Core !', 'success');
+        this.showNotification('Bienvenue dans TodoList IA (Refonte 2025) !', 'info');
     }
 
-    // === GESTION DES DONNÉES ===
+    // === DATA MANAGEMENT ===
     loadData() {
         try {
-            const savedTasks = localStorage.getItem('todocore_tasks');
-            const savedMetrics = localStorage.getItem('todocore_metrics');
+            const savedTasks = localStorage.getItem('todocore_tasks_2025_v2'); // New key for this version
+            const savedMetrics = localStorage.getItem('todocore_metrics_2025_v2');
             
             if (savedTasks) {
                 this.tasks = JSON.parse(savedTasks);
-                console.log('Tâches chargées:', this.tasks.length);
             }
             if (savedMetrics) {
                 this.metrics = { ...this.metrics, ...JSON.parse(savedMetrics) };
             }
         } catch (error) {
-            console.error('Erreur lors du chargement des données:', error);
+            console.error('Error loading data:', error);
             this.showNotification('Erreur de chargement des données', 'error');
         }
     }
@@ -74,12 +72,11 @@ class TodoListCore {
         
         this.saveDebounceTimer = setTimeout(() => {
             try {
-                localStorage.setItem('todocore_tasks', JSON.stringify(this.tasks));
-                localStorage.setItem('todocore_metrics', JSON.stringify(this.metrics));
-                this.updateSyncStatus(true);
-                console.log('Données sauvegardées automatiquement');
+                localStorage.setItem('todocore_tasks_2025_v2', JSON.stringify(this.tasks));
+                localStorage.setItem('todocore_metrics_2025_v2', JSON.stringify(this.metrics));
+                this.updateSyncStatus(true, 'Sauvegardé');
             } catch (error) {
-                console.error('Erreur lors de la sauvegarde:', error);
+                console.error('Error saving data:', error);
                 this.showNotification('Erreur de sauvegarde', 'error');
             }
         }, 1000);
@@ -91,7 +88,7 @@ class TodoListCore {
         }, 30000); 
     }
 
-    // === GESTION DES TÂCHES ===
+    // === TASK MANAGEMENT ===
     async addTask(title, category = '', priority = '', column = 'todo') {
         if (!title.trim()) {
             this.showNotification('Veuillez saisir une tâche', 'warning');
@@ -102,26 +99,24 @@ class TodoListCore {
             id: this.generateId(),
             title: title.trim(),
             category,
-            priority,
+            priority: priority || 'Normale', // Default priority if not set
             column,
             createdAt: new Date().toISOString(),
             completedAt: null,
-            subtasks: [],
+            subtasks: [], // Initialize with empty array
             aiGenerated: false
         };
 
-        // Ne pas appeler l'IA si l'URL du backend est le placeholder ou invalide
-        const backendIsConfigured = this.backendUrl && this.backendUrl.startsWith('https') && this.backendUrl !== 'https://VOTRE_APP_RENDER.onrender.com';
+        const backendIsConfigured = this.isBackendConfigured();
 
         if (!category && backendIsConfigured) {
             const suggestedCategory = await this.categorizeTaskWithAI(title); 
             if (suggestedCategory && this.categories.includes(suggestedCategory)) {
                 task.category = suggestedCategory;
-                console.log('Catégorie suggérée par IA:', suggestedCategory);
             }
         }
 
-        if (!priority) {
+        if (!priority) { // If priority is still empty after default
             task.priority = this.suggestPriority(title);
         }
 
@@ -158,7 +153,7 @@ class TodoListCore {
         this.updateUI();
     }
 
-    deleteTask(taskId) {
+    deleteTask(taskId, fromModal = false) {
         const taskIndex = this.tasks.findIndex(t => t.id === taskId);
         if (taskIndex === -1) return;
 
@@ -173,7 +168,13 @@ class TodoListCore {
         this.updateProductivityScore();
         this.saveData();
         this.updateUI();
-        this.showUndoNotification(`Tâche "${this.escapeHtml(task.title)}" supprimée`, task, taskIndex);
+        
+        if (fromModal) {
+            this.toggleModal('taskDetailsModal', false);
+            this.showNotification(`Tâche "${this.escapeHtml(task.title)}" supprimée.`, 'success');
+        } else {
+            this.showUndoNotification(`Tâche "${this.escapeHtml(task.title)}" supprimée`, task, taskIndex);
+        }
     }
 
     restoreTask(task, index) {
@@ -186,44 +187,136 @@ class TodoListCore {
         this.updateUI();
         this.showNotification('Tâche restaurée', 'success');
     }
-
-    editTask(taskId) {
+    
+    // === TASK DETAILS MODAL ===
+    showTaskDetailsModal(taskId) {
+        this.currentEditingTaskId = taskId;
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
 
-        const newTitle = prompt('Modifier la tâche:', task.title);
-        if (newTitle && newTitle.trim()) {
-            task.title = newTitle.trim();
-            this.saveData();
-            this.updateUI();
-            this.showNotification('Tâche modifiée', 'success');
-        }
+        document.getElementById('detailsTaskId').value = taskId;
+        document.getElementById('detailsTaskTitle').value = task.title;
+        document.getElementById('detailsTaskCategory').value = task.category || "";
+        document.getElementById('detailsTaskPriority').value = task.priority || "Normale";
+        
+        this.renderSubtasksInModal(task.subtasks || []);
+
+        this.toggleModal('taskDetailsModal', true);
+        document.getElementById('detailsTaskTitle').focus();
     }
 
-    createSubtask(sourceTaskId, targetTaskId) {
-        const sourceTask = this.tasks.find(t => t.id === sourceTaskId);
-        const targetTask = this.tasks.find(t => t.id === targetTaskId);
-        
-        if (!sourceTask || !targetTask || sourceTask.id === targetTaskId) return;
+    renderSubtasksInModal(subtasks) {
+        const subtaskListEl = document.getElementById('detailsSubtaskList');
+        subtaskListEl.innerHTML = ''; // Clear previous subtasks
+        if (subtasks.length === 0) {
+            subtaskListEl.innerHTML = '<p class="empty-column-text">Aucune sous-tâche.</p>';
+            return;
+        }
+        subtasks.forEach((subtaskText, index) => {
+            const subtaskEl = document.createElement('div');
+            subtaskEl.className = 'subtask'; // Use existing .subtask class for styling
+            subtaskEl.innerHTML = `
+                <span class="subtask-title">${this.escapeHtml(subtaskText)}</span>
+                <button class="delete-subtask-btn btn btn--danger btn--sm" data-index="${index}" title="Supprimer sous-tâche">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            subtaskEl.querySelector('.delete-subtask-btn').addEventListener('click', () => {
+                this.handleDeleteSubtaskFromModal(index);
+            });
+            subtaskListEl.appendChild(subtaskEl);
+        });
+    }
 
-        if (!targetTask.subtasks) targetTask.subtasks = [];
-        
-        targetTask.subtasks.push(sourceTask.title);
-        
-        const sourceIndex = this.tasks.findIndex(t => t.id === sourceTaskId);
-        this.tasks.splice(sourceIndex, 1);
-        this.metrics.totalTasks--;
+    handleSaveTaskDetails() {
+        if (!this.currentEditingTaskId) return;
+        const task = this.tasks.find(t => t.id === this.currentEditingTaskId);
+        if (!task) return;
+
+        const newTitle = document.getElementById('detailsTaskTitle').value.trim();
+        const newCategory = document.getElementById('detailsTaskCategory').value;
+        const newPriority = document.getElementById('detailsTaskPriority').value;
+
+        if (!newTitle) {
+            this.showNotification("Le titre de la tâche ne peut pas être vide.", "warning");
+            return;
+        }
+
+        task.title = newTitle;
+        task.category = newCategory;
+        task.priority = newPriority;
+        // Subtasks are handled separately by handleAddSubtaskFromModal and handleDeleteSubtaskFromModal
 
         this.saveData();
         this.updateUI();
-        this.showNotification(`Sous-tâche créée dans "${this.escapeHtml(targetTask.title)}"`, 'success');
+        this.toggleModal('taskDetailsModal', false);
+        this.showNotification("Tâche mise à jour.", "success");
+        this.currentEditingTaskId = null;
     }
 
-    // === INTELLIGENCE ARTIFICIELLE (via Backend) ===
+    handleAddSubtaskFromModal() {
+        if (!this.currentEditingTaskId) return;
+        const task = this.tasks.find(t => t.id === this.currentEditingTaskId);
+        if (!task) return;
+
+        const subtaskTitleInput = document.getElementById('detailsNewSubtaskTitle');
+        const subtaskTitle = subtaskTitleInput.value.trim();
+
+        if (!subtaskTitle) {
+            this.showNotification("Le titre de la sous-tâche ne peut pas être vide.", "warning");
+            return;
+        }
+
+        if (!task.subtasks) task.subtasks = [];
+        task.subtasks.push(subtaskTitle);
+        
+        this.saveData(); // Save data after adding subtask
+        this.renderSubtasksInModal(task.subtasks); // Re-render subtasks in modal
+        this.updateUI(); // Update main UI if subtasks are shown there
+        subtaskTitleInput.value = ''; // Clear input
+        subtaskTitleInput.focus();
+        this.showNotification("Sous-tâche ajoutée.", "success");
+    }
+    
+    handleDeleteSubtaskFromModal(subtaskIndex) {
+        if (!this.currentEditingTaskId) return;
+        const task = this.tasks.find(t => t.id === this.currentEditingTaskId);
+        if (!task || !task.subtasks || subtaskIndex < 0 || subtaskIndex >= task.subtasks.length) return;
+
+        const removedSubtask = task.subtasks.splice(subtaskIndex, 1)[0];
+        
+        this.saveData();
+        this.renderSubtasksInModal(task.subtasks);
+        this.updateUI();
+        this.showNotification(`Sous-tâche "${this.escapeHtml(removedSubtask)}" supprimée.`, "success");
+    }
+
+
+    // === ARTIFICIAL INTELLIGENCE (via Backend) ===
+    isBackendConfigured() {
+        // Check if backendUrl is not the placeholder and not the default localhost used for local dev only
+        const isPlaceholder = this.backendUrl === 'https://VOTRE_APP_RENDER.onrender.com';
+        const isDefaultLocal = this.backendUrl === 'http://localhost:3001' && (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1");
+        return this.backendUrl && this.backendUrl.startsWith('http') && !isPlaceholder && !isDefaultLocal;
+    }
+    
+    updateAIStatus() {
+        const aiStatusEl = document.getElementById('aiStatus');
+        if (aiStatusEl) {
+            if (this.isBackendConfigured()) {
+                aiStatusEl.innerHTML = `<i class="fas fa-check-circle"></i> <span>IA prête et connectée.</span>`;
+                aiStatusEl.className = 'ai-status success';
+            } else {
+                aiStatusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <span>Backend IA non configuré. Fonctionnalités IA limitées.</span>`;
+                aiStatusEl.className = 'ai-status error';
+            }
+        }
+    }
+
     async _callAIBackend(type, promptText) {
-        const backendIsConfigured = this.backendUrl && this.backendUrl.startsWith('https') && this.backendUrl !== 'https://VOTRE_APP_RENDER.onrender.com';
-        if (!backendIsConfigured) {
-             this.showNotification("L'URL du backend n'est pas correctement configurée. Fonctions IA indisponibles.", "error", 0);
+        if (!this.isBackendConfigured()) {
+             this.showNotification("L'URL du backend IA n'est pas correctement configurée.", "error", 0);
+             this.updateAIStatus(); 
              return null;
         }
 
@@ -242,32 +335,28 @@ class TodoListCore {
             });
 
             if (!response.ok) {
-                let errorDetails = 'Erreur inconnue du serveur.';
+                let errorDetails = 'Erreur inconnue du serveur IA.';
                 try {
                     const errorData = await response.json();
                     errorDetails = errorData.error || (errorData.details ? JSON.stringify(errorData.details) : errorDetails);
                 } catch (e) {
                     errorDetails = `Statut ${response.status}: ${response.statusText}`;
                 }
-                console.error(`Backend API Error for ${type}:`, errorDetails);
                 throw new Error(`Erreur API Backend (${type}): ${errorDetails}`);
             }
             
             responseData = await response.json();
             this.setCachedAIResponse(cacheKey, responseData);
+            this.updateAIStatus(); 
             return responseData;
 
         } catch (error) {
-            console.error(`Erreur IA (via backend) pour ${type}:`, error);
-            if (error.message.toLowerCase().includes('failed to fetch')) {
-                this.showNotification(
-                    `Impossible de joindre le serveur IA (${this.backendUrl}). Vérifiez votre connexion ou l'URL du backend.`, 
-                    'error', 
-                    10000 
-                );
-            } else {
-                this.showNotification(`Erreur IA (${type}): ${error.message}`, 'error');
-            }
+            console.error(`AI Error (via backend) for ${type}:`, error);
+            const specificErrorMessage = error.message.toLowerCase().includes('failed to fetch') ?
+                `Impossible de joindre le serveur IA. Vérifiez votre connexion ou l'URL du backend.` :
+                `Erreur IA (${type}): ${error.message}`;
+            this.showNotification(specificErrorMessage, 'error', 10000);
+            this.updateAIStatus(); 
             return null;
         } finally {
             this.showLoading(false);
@@ -280,10 +369,15 @@ class TodoListCore {
 
         if (aiResponse && aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
             const content = aiResponse.choices[0].message.content.trim();
-            const subtasks = content.split('\n').filter(line => line.trim()).slice(0, 5);
-            this.showNotification(`${subtasks.length} sous-tâches générées`, 'success');
+            const subtasks = content.split('\n').map(s => s.replace(/^- /,'').trim()).filter(line => line.trim()).slice(0, 5); // Max 5 subtasks
+            if (subtasks.length > 0) {
+                this.showNotification(`${subtasks.length} sous-tâches générées par l'IA`, 'success');
+            } else {
+                this.showNotification("L'IA n'a pas pu générer de sous-tâches pertinentes.", 'info');
+            }
             return subtasks;
         }
+        this.showNotification("Erreur lors de la génération de sous-tâches par l'IA.", 'error');
         return [];
     }
 
@@ -293,16 +387,21 @@ class TodoListCore {
 
         if (aiResponse && aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
             const category = aiResponse.choices[0].message.content.trim();
-            return category;
+            if (this.categories.includes(category)) {
+                 return category;
+            } else {
+                console.warn(`AI suggested category "${category}" not recognized.`);
+                return ''; 
+            }
         }
         return '';
     }
 
 
     suggestPriority(taskTitle) {
-        const urgentKeywords = ['urgent', 'immédiat', 'critique', 'important', 'deadline', 'échéance', 'tout de suite', 'asap'];
-        const highKeywords = ['vite', 'bientôt', 'prioritaire'];
-        const lowKeywords = ['quand possible', 'plus tard', 'éventuellement', 'si temps', 'un jour'];
+        const urgentKeywords = ['urgent', 'immédiat', 'critique', 'important', 'deadline', 'échéance', 'tout de suite', 'asap', 'impératif'];
+        const highKeywords = ['vite', 'bientôt', 'prioritaire', 'rapide'];
+        const lowKeywords = ['quand possible', 'plus tard', 'éventuellement', 'si temps', 'un jour', 'peut-être'];
         
         const titleLower = taskTitle.toLowerCase();
         
@@ -326,10 +425,10 @@ class TodoListCore {
         this.aiCache.set(key, { data, timestamp: Date.now() });
     }
 
-    // === DICTÉE VOCALE ===
+    // === VOICE DICTATION ===
     initVoiceRecognition() {
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            this.showNotification('Reconnaissance vocale non supportée', 'error');
+            this.showNotification('Reconnaissance vocale non supportée par ce navigateur.', 'error');
             return false;
         }
 
@@ -342,7 +441,7 @@ class TodoListCore {
         this.recognition.onstart = () => {
             this.isVoiceRecording = true;
             this.updateVoiceButton();
-            this.showNotification('Écoute en cours... Dictez votre tâche !', 'info');
+            this.showNotification('Écoute en cours... Dictez votre tâche !', 'info', 3000);
         };
 
         this.recognition.onend = () => {
@@ -359,9 +458,9 @@ class TodoListCore {
             this.isVoiceRecording = false;
             this.updateVoiceButton();
             let errorMessage = 'Erreur de reconnaissance vocale';
-            if (event.error === 'no-speech') errorMessage = 'Aucune parole détectée.';
-            else if (event.error === 'audio-capture') errorMessage = 'Problème de capture audio.';
-            else if (event.error === 'not-allowed') errorMessage = 'Accès au micro refusé.';
+            if (event.error === 'no-speech') errorMessage = 'Aucune parole détectée. Veuillez réessayer.';
+            else if (event.error === 'audio-capture') errorMessage = 'Problème de capture audio. Vérifiez votre microphone.';
+            else if (event.error === 'not-allowed') errorMessage = 'Accès au microphone refusé. Veuillez autoriser l\'accès.';
             this.showNotification(errorMessage, 'error');
         };
         return true;
@@ -370,37 +469,57 @@ class TodoListCore {
     startVoiceRecognition() {
         if (!this.recognition && !this.initVoiceRecognition()) return;
         if (this.isVoiceRecording) {
-            this.recognition.stop();
+            this.recognition.stop(); 
             return;
         }
         try {
             this.recognition.start();
-        } catch (e) {
+        } catch (e) { 
             this.isVoiceRecording = false;
             this.updateVoiceButton();
+            console.error("Error starting voice recognition:", e);
             this.showNotification('Impossible de démarrer la reconnaissance vocale.', 'error');
         }
     }
 
     processVoiceCommand(transcript) {
         const command = transcript.toLowerCase();
+        const taskInput = document.getElementById('taskInput');
         
         if (command.includes('ajouter tâche') || command.includes('nouvelle tâche')) {
             const taskTitle = transcript.replace(/ajouter tâche|nouvelle tâche/gi, '').trim();
-            if (taskTitle) this.addTask(taskTitle);
-        } else if (command.includes('réinitialiser')) {
+            if (taskTitle && taskInput) {
+                taskInput.value = taskTitle; 
+                this.handleAddTask(); 
+            } else if (taskTitle) {
+                this.addTask(taskTitle);
+            }
+        } else if (command.includes('réinitialiser') || command.includes('tout effacer')) {
             this.showResetModal();
-        } else {
-            this.addTask(transcript);
+        } else if (command.includes('mode sombre') || command.includes('thème sombre')) {
+            if (this.currentTheme !== 'dark') this.toggleTheme();
+        } else if (command.includes('mode clair') || command.includes('thème clair')) {
+            if (this.currentTheme !== 'light') this.toggleTheme();
+        }
+         else { 
+            if (taskInput) {
+                taskInput.value = transcript;
+                this.handleAddTask();
+            } else {
+                this.addTask(transcript);
+            }
         }
     }
 
     updateVoiceButton() {
         const voiceBtn = document.getElementById('voiceBtn');
-        if (voiceBtn) voiceBtn.classList.toggle('recording', this.isVoiceRecording);
+        if (voiceBtn) {
+            voiceBtn.classList.toggle('recording', this.isVoiceRecording);
+            voiceBtn.title = this.isVoiceRecording ? "Arrêter l'enregistrement" : "Dictée vocale (Ctrl+M)";
+        }
     }
 
-    // === RECHERCHE ET FILTRAGE ===
+    // === SEARCH & FILTER ===
     performSearch(searchTerm) {
         this.searchTerm = searchTerm.toLowerCase();
         this.updateUI();
@@ -420,22 +539,23 @@ class TodoListCore {
         let draggedTaskId = null;
     
         document.addEventListener('dragstart', (e) => {
-            if (e.target.classList.contains('task-item')) {
-                draggedTaskId = e.target.dataset.taskId;
-                e.target.classList.add('dragging');
+            const taskItem = e.target.closest('.task-item');
+            if (taskItem) {
+                draggedTaskId = taskItem.dataset.taskId;
+                taskItem.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', draggedTaskId); 
             }
         });
     
         document.addEventListener('dragend', (e) => {
-            if (e.target.classList.contains('task-item')) {
-                e.target.classList.remove('dragging');
+            const taskItem = e.target.closest('.task-item');
+            if (taskItem) {
+                taskItem.classList.remove('dragging');
             }
             draggedTaskId = null; 
             document.querySelectorAll('.tasks-list.drag-over').forEach(list => list.classList.remove('drag-over'));
             document.querySelectorAll('.task-item.drag-over-task').forEach(taskEl => taskEl.classList.remove('drag-over-task'));
-
         });
     
         document.querySelectorAll('.tasks-list').forEach(list => {
@@ -459,7 +579,7 @@ class TodoListCore {
                 
                 if (draggedTaskId && newColumn) {
                     const droppedOnTask = e.target.closest('.task-item');
-                    if (!droppedOnTask) {
+                    if (!droppedOnTask) { 
                         this.moveTask(draggedTaskId, newColumn);
                     }
                 }
@@ -468,13 +588,14 @@ class TodoListCore {
     
         document.addEventListener('dragover', (e) => {
             const taskElement = e.target.closest('.task-item');
-            if (taskElement && taskElement.dataset.taskId !== draggedTaskId) {
+            if (taskElement && taskElement.dataset.taskId !== draggedTaskId) { 
                 e.preventDefault(); 
                 e.dataTransfer.dropEffect = 'link'; 
                 taskElement.classList.add('drag-over-task');
                 taskElement.closest('.tasks-list')?.classList.remove('drag-over');
             }
         });
+    
          document.addEventListener('dragleave', (e) => {
             const taskElement = e.target.closest('.task-item');
             if (taskElement) {
@@ -497,8 +618,34 @@ class TodoListCore {
             }
         });
     }
+    
+    createSubtask(sourceTaskId, targetTaskId) { // Added for drag-drop subtask creation
+        const sourceTask = this.tasks.find(t => t.id === sourceTaskId);
+        const targetTask = this.tasks.find(t => t.id === targetTaskId);
+        
+        if (!sourceTask || !targetTask || sourceTask.id === targetTaskId) return;
 
-    // === GESTION DES MÉTRIQUES ===
+        if (!targetTask.subtasks) targetTask.subtasks = [];
+        
+        // Avoid adding duplicate subtask by title if it's just a move of an existing task
+        if (!targetTask.subtasks.includes(sourceTask.title)) {
+            targetTask.subtasks.push(sourceTask.title);
+        }
+        
+        // Remove the source task as it's now a subtask
+        const sourceIndex = this.tasks.findIndex(t => t.id === sourceTaskId);
+        if (sourceIndex > -1) {
+            this.tasks.splice(sourceIndex, 1);
+            this.metrics.totalTasks--;
+        }
+
+        this.saveData();
+        this.updateUI();
+        this.showNotification(`"${this.escapeHtml(sourceTask.title)}" ajoutée comme sous-tâche à "${this.escapeHtml(targetTask.title)}"`, 'success');
+    }
+
+
+    // === METRICS MANAGEMENT ===
     updateProductivityScore() {
         const activeTasks = this.tasks.filter(t => t.column !== 'done').length;
         const completedTasks = this.tasks.filter(t => t.column === 'done').length;
@@ -510,10 +657,14 @@ class TodoListCore {
             this.metrics.productivityScore = Math.min(100, Math.round((completedTasks / totalConsideredTasks) * 100));
         }
         this.metrics.totalTasks = this.tasks.length; 
-        this.metrics.completedToday = this.tasks.filter(t => t.column === 'done' && t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length;
+        this.metrics.completedToday = this.tasks.filter(t => 
+            t.column === 'done' && 
+            t.completedAt && 
+            new Date(t.completedAt).toDateString() === new Date().toDateString()
+        ).length;
     }
 
-    // === INTERFACE UTILISATEUR ===
+    // === USER INTERFACE ===
     updateUI() {
         this.updateProductivityScore(); 
         this.updateStats();
@@ -541,7 +692,7 @@ class TodoListCore {
             if (columnTasks.length === 0 && this.searchTerm) {
                 listEl.innerHTML = `<p class="empty-column-text">Aucune tâche ne correspond à "${this.escapeHtml(this.searchTerm)}" dans cette colonne.</p>`;
             } else if (columnTasks.length === 0) {
-                 listEl.innerHTML = `<p class="empty-column-text">Aucune tâche ici.</p>`;
+                 listEl.innerHTML = `<p class="empty-column-text">Aucune tâche ici. Ajoutez-en une !</p>`;
             } else {
                 columnTasks.forEach(task => listEl.appendChild(this.createTaskElement(task)));
             }
@@ -552,17 +703,25 @@ class TodoListCore {
         const taskDiv = document.createElement('div');
         taskDiv.className = 'task-item';
         if (task.priority) { 
-            taskDiv.classList.add(`priority-${task.priority.toLowerCase().replace(' ', '')}`);
+            taskDiv.classList.add(`priority-${task.priority.toLowerCase().replace(/\s+/g, '')}`);
         }
         taskDiv.draggable = true;
         taskDiv.dataset.taskId = task.id;
 
-        const priorityClass = task.priority ? `priority-${task.priority.toLowerCase().replace(' ', '')}` : '';
+        taskDiv.addEventListener('click', (e) => {
+            if (e.target.closest('.task-action-btn')) {
+                return;
+            }
+            this.showTaskDetailsModal(task.id);
+        });
+
+
+        const priorityClass = task.priority ? `priority-${task.priority.toLowerCase().replace(/\s+/g, '')}` : '';
         
         taskDiv.innerHTML = `
             <div class="task-header">
                 <div class="task-title">${this.escapeHtml(task.title)}</div>
-                ${task.priority ? `<span class="task-priority ${priorityClass}">${task.priority}</span>` : ''}
+                ${task.priority ? `<span class="task-priority ${priorityClass}">${this.escapeHtml(task.priority)}</span>` : ''}
             </div>
             ${task.subtasks && task.subtasks.length > 0 ? `
                 <div class="task-subtasks">
@@ -571,30 +730,26 @@ class TodoListCore {
             ` : ''}
             <div class="task-meta">
                 <div>
-                    ${task.category ? `<span class="task-category">${task.category}</span>` : ''}
-                    <span class="task-date">Créé le: ${new Date(task.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' })}</span>
+                    ${task.category ? `<span class="task-category">${this.escapeHtml(task.category)}</span>` : ''}
+                    <span class="task-date">Créé le: ${new Date(task.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' })}</span>
                 </div>
                 <div class="task-actions">
-                    <button class="task-action-btn ai-generate-btn" data-task-id="${task.id}" title="Générer sous-tâches IA">
+                    <button class="task-action-btn ai-generate-btn btn" data-task-id="${task.id}" title="Générer sous-tâches IA">
                         <i class="fas fa-robot"></i>
                     </button>
-                    <button class="task-action-btn edit-btn" data-task-id="${task.id}" title="Modifier">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="task-action-btn delete-btn" data-task-id="${task.id}" title="Supprimer">
+                    <button class="task-action-btn delete-btn btn" data-task-id="${task.id}" title="Supprimer">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
         `;
         taskDiv.querySelector('.ai-generate-btn').addEventListener('click', (e) => {
-            e.stopPropagation(); this.generateSubtasksForTask(task.id);
-        });
-        taskDiv.querySelector('.edit-btn').addEventListener('click', (e) => {
-            e.stopPropagation(); this.editTask(task.id);
+            e.stopPropagation(); 
+            this.generateSubtasksForTaskFromQuickButton(task.id);
         });
         taskDiv.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation(); this.deleteTask(task.id);
+            e.stopPropagation(); 
+            this.deleteTask(task.id);
         });
 
         return taskDiv;
@@ -652,87 +807,85 @@ class TodoListCore {
         if (circle && scoreElement) {
             const score = this.metrics.productivityScore;
             scoreElement.textContent = `${score}%`;
-            circle.style.background = `conic-gradient(var(--color-primary) ${score}%, rgba(var(--color-primary-rgb), 0.1) ${score}%)`;
+            const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+            const surfaceColor = getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim(); 
+            circle.style.background = `conic-gradient(${primaryColor} ${score}%, ${surfaceColor} ${score}%)`;
         }
     }
 
-    // === HANDLERS POUR L'IA ===
-    async generateSubtasksForTask(taskId) {
+    // === AI FEATURE HANDLERS (MODAL & QUICK BUTTON) ===
+    async generateSubtasksForTaskFromQuickButton(taskId) { 
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
 
         const subtasks = await this.generateSubtasksWithAI(task.title);
         if (subtasks && subtasks.length > 0) { 
-            task.subtasks = subtasks;
+            task.subtasks = (task.subtasks || []).concat(subtasks);
             task.aiGenerated = true;
             this.saveData();
             this.updateUI();
+        } else if (subtasks) { 
+             this.showNotification('L\'IA n\'a pas pu générer de sous-tâches pertinentes.', 'info');
         }
     }
+    
+    async handleAIFeature(actionType) {
+        let targetTask;
+        const activeTasks = this.tasks.filter(t => t.column !== 'done').sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        if (activeTasks.length > 0) {
+            targetTask = activeTasks[0]; 
+        }
 
-    async handleGenerateSubtasks() {
-        const lastTask = this.tasks.filter(t => t.column !== 'done').sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-        if (!lastTask) {
-            this.showNotification('Aucune tâche active à améliorer', 'warning');
+        if (!targetTask && (actionType === 'generateSubtasksModalBtn' || actionType === 'categorizeTaskModalBtn')) {
+            this.showNotification('Aucune tâche active à traiter par l\'IA.', 'warning');
+            this.toggleModal('aiModal', false); 
             return;
         }
-        await this.generateSubtasksForTask(lastTask.id);
-    }
+        
+        this.toggleModal('aiModal', false);
 
-    async handleCategorizeTask() {
-        const unCategorizedTasks = this.tasks.filter(task => !task.category && task.column !== 'done');
-        if (unCategorizedTasks.length === 0) {
-            this.showNotification('Toutes les tâches actives sont déjà catégorisées', 'info');
-            return;
-        }
-
-        this.showLoading(true);
-        let categorizedCount = 0;
-        const taskToCategorize = unCategorizedTasks.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-        if (taskToCategorize) {
-            const category = await this.categorizeTaskWithAI(taskToCategorize.title);
-            if (category && this.categories.includes(category)) {
-                taskToCategorize.category = category;
-                categorizedCount++;
-            }
-        }
-        this.showLoading(false);
-
-        if (categorizedCount > 0) {
-            this.saveData();
-            this.updateUI();
-            this.showNotification(`${categorizedCount} tâche(s) catégorisée(s)`, 'success');
-        } else if (taskToCategorize) {
-            this.showNotification('Aucune catégorie pertinente trouvée par l\'IA.', 'info');
-        }
-    }
-
-    async handleSuggestPriorities() {
-        const tasksToPrioritize = this.tasks.filter(task => task.column !== 'done' && (!task.priority || task.priority === "Normale"));
-        if (tasksToPrioritize.length === 0) {
-            this.showNotification('Toutes les tâches actives ont déjà une priorité spécifique ou sont normales.', 'info');
-            return;
-        }
-        let suggestedCount = 0;
-        const taskToSuggestFor = tasksToPrioritize.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-         if (taskToSuggestFor) {
-            const oldPriority = taskToSuggestFor.priority;
-            taskToSuggestFor.priority = this.suggestPriority(taskToSuggestFor.title);
-            if (taskToSuggestFor.priority !== oldPriority) {
-                suggestedCount++;
-            }
-        }
-
-        if (suggestedCount > 0) {
-            this.saveData();
-            this.updateUI();
-            this.showNotification(`${suggestedCount} priorité(s) suggérée(s)`, 'success');
-        } else if (taskToSuggestFor) {
-             this.showNotification('Aucune nouvelle priorité pertinente suggérée.', 'info');
+        switch(actionType) {
+            case 'generateSubtasksModalBtn': 
+                if (targetTask) await this.generateSubtasksForTaskFromQuickButton(targetTask.id); 
+                break;
+            case 'categorizeTaskModalBtn': 
+                if (targetTask && !targetTask.category) { 
+                    const category = await this.categorizeTaskWithAI(targetTask.title);
+                    if (category && this.categories.includes(category)) {
+                        targetTask.category = category;
+                        this.saveData();
+                        this.updateUI();
+                        this.showNotification(`Tâche "${this.escapeHtml(targetTask.title)}" catégorisée comme "${category}" par l'IA.`, 'success');
+                    } else if (category === '') { 
+                        this.showNotification('L\'IA n\'a pas pu assigner de catégorie pertinente.', 'info');
+                    }
+                } else if (targetTask && targetTask.category) {
+                    this.showNotification(`La tâche "${this.escapeHtml(targetTask.title)}" est déjà catégorisée.`, 'info');
+                }
+                break;
+            case 'suggestPrioritiesModalBtn': 
+                const taskToPrioritize = activeTasks.find(task => !task.priority || task.priority === "Normale");
+                if (taskToPrioritize) {
+                    const oldPriority = taskToPrioritize.priority;
+                    const newPriority = this.suggestPriority(taskToPrioritize.title);
+                    if (newPriority !== oldPriority) {
+                        taskToPrioritize.priority = newPriority;
+                        this.saveData();
+                        this.updateUI();
+                        this.showNotification(`Priorité de "${this.escapeHtml(taskToPrioritize.title)}" suggérée comme "${newPriority}".`, 'success');
+                    } else {
+                        this.showNotification('Aucune nouvelle priorité pertinente suggérée pour la tâche active.', 'info');
+                    }
+                } else {
+                    this.showNotification('Toutes les tâches actives ont déjà une priorité spécifique.', 'info');
+                }
+                break;
         }
     }
 
-    // === SYSTÈME DE NOTIFICATIONS ===
+
+    // === NOTIFICATION SYSTEM ===
     showNotification(message, type = 'info', duration = 4000) {
         const container = document.getElementById('notificationsContainer');
         if (!container) return;
@@ -740,7 +893,7 @@ class TodoListCore {
         const notificationId = `notif-${Date.now()}`;
         const notification = document.createElement('div');
         notification.id = notificationId;
-        notification.className = `notification ${type}`;
+        notification.className = `notification ${type} glass-effect`; 
         
         const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
 
@@ -748,18 +901,33 @@ class TodoListCore {
             <div class="notification-content">
                 <i class="fas ${icons[type]} notification-icon"></i>
                 <span class="notification-text">${this.escapeHtml(message)}</span>
-                <button class="notification-close" data-dismiss="${notificationId}" title="Fermer">
-                    <i class="fas fa-times"></i>
-                </button>
             </div>
+            <button class="notification-close btn" data-dismiss="${notificationId}" title="Fermer">
+                <i class="fas fa-times"></i>
+            </button>
         `;
-        container.appendChild(notification);
-        notification.querySelector('.notification-close').addEventListener('click', () => notification.remove());
+        container.prepend(notification); 
+        const closeBtn = notification.querySelector('.notification-close');
+        
+        const dismissNotification = () => {
+            notification.classList.add('dismiss');
+            notification.addEventListener('animationend', () => {
+                if (notification.parentNode) { 
+                    notification.remove();
+                }
+            }, { once: true }); 
+        };
+
+        closeBtn.addEventListener('click', dismissNotification);
 
         if (duration > 0) {
-            setTimeout(() => notification.remove(), duration);
+            setTimeout(() => {
+                if (document.getElementById(notificationId)) { 
+                    dismissNotification();
+                }
+            }, duration);
         }
-        if (type !== 'info') this.playNotificationSound(type); 
+        if (type === 'error' || type === 'success') this.playNotificationSound(type); 
     }
 
     showUndoNotification(message, task, taskIndex) {
@@ -768,28 +936,40 @@ class TodoListCore {
         const notificationId = `notif-undo-${Date.now()}`;
         const notification = document.createElement('div');
         notification.id = notificationId;
-        notification.className = 'notification warning'; 
+        notification.className = 'notification warning glass-effect'; 
         
         notification.innerHTML = `
             <div class="notification-content">
                 <i class="fas fa-undo notification-icon"></i> 
                 <span class="notification-text">${this.escapeHtml(message)}</span>
-                <button class="btn btn--sm btn--secondary undo-btn" style="margin-left: auto; margin-right: 8px;">Annuler</button>
-                <button class="notification-close" data-dismiss="${notificationId}" title="Fermer">
-                    <i class="fas fa-times"></i>
-                </button>
+                <button class="btn btn--sm btn--secondary undo-btn">Annuler</button>
             </div>
+             <button class="notification-close btn" data-dismiss="${notificationId}" title="Fermer">
+                <i class="fas fa-times"></i>
+            </button>
         `;
-        container.appendChild(notification);
-        
+        container.prepend(notification);
+        const closeBtn = notification.querySelector('.notification-close');
         const undoBtn = notification.querySelector('.undo-btn');
+
+        const dismissNotification = () => {
+            notification.classList.add('dismiss');
+            notification.addEventListener('animationend', () => {
+                 if (notification.parentNode) notification.remove();
+            }, { once: true });
+        };
+        
         undoBtn.addEventListener('click', () => {
             this.restoreTask(task, taskIndex);
-            notification.remove();
+            dismissNotification();
         });
-        notification.querySelector('.notification-close').addEventListener('click', () => notification.remove());
+        closeBtn.addEventListener('click', dismissNotification);
 
-        setTimeout(() => notification.remove(), 8000); 
+        setTimeout(() => {
+             if (document.getElementById(notificationId)) {
+                dismissNotification();
+            }
+        }, 8000); 
     }
 
     playNotificationSound(type) {
@@ -801,42 +981,51 @@ class TodoListCore {
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
 
-            const frequencies = { success: 800, error: 300, warning: 500 }; 
+            const frequencies = { success: 700, error: 250, warning: 450 }; 
             if (!frequencies[type]) return; 
 
             oscillator.type = type === 'error' ? 'sawtooth' : 'sine'; 
             oscillator.frequency.setValueAtTime(frequencies[type], audioContext.currentTime);
-            gainNode.gain.setValueAtTime(0.08, audioContext.currentTime); 
-            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.4);
+            gainNode.gain.setValueAtTime(0.06, audioContext.currentTime); 
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3);
             oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.4);
+            oscillator.stop(audioContext.currentTime + 0.3);
         } catch (error) {
-            console.warn('Impossible de jouer le son de notification:', error);
+            console.warn('Could not play notification sound:', error);
         }
     }
 
-    // === RÉINITIALISATION SÉCURISÉE ===
+    // === SECURE RESET ===
     showResetModal() {
-        const modal = document.getElementById('resetModal');
+        this.toggleModal('resetModal', true); 
         const input = document.getElementById('resetConfirmInput');
         const confirmBtn = document.getElementById('confirmReset');
         
-        if (!modal || !input || !confirmBtn) return;
+        if (!input || !confirmBtn) return;
         
-        modal.classList.add('active');
         input.value = '';
         confirmBtn.disabled = true;
         input.focus();
         
-        const validateInput = () => confirmBtn.disabled = input.value !== 'RESET';
-        
-        input.removeEventListener('input', validateInput);
-        input.addEventListener('input', validateInput);
-        validateInput();
+        this.boundValidateResetInput = this.validateResetInput.bind(this);
+        input.removeEventListener('input', this.boundValidateResetInput); 
+        input.addEventListener('input', this.boundValidateResetInput);
+        this.validateResetInput(); 
     }
+    
+    validateResetInput() { 
+        const input = document.getElementById('resetConfirmInput');
+        const confirmBtn = document.getElementById('confirmReset');
+        if (input && confirmBtn) {
+            confirmBtn.disabled = input.value !== 'RESET';
+        }
+    }
+
 
     async confirmReset() {
         const confirmBtn = document.getElementById('confirmReset');
+        if (confirmBtn.disabled) return; 
+
         confirmBtn.disabled = true; 
         const countdownEl = document.getElementById('resetCountdown');
         if (!countdownEl) return;
@@ -857,35 +1046,44 @@ class TodoListCore {
 
     executeReset() {
         try {
-            localStorage.clear();
+            localStorage.clear(); 
             sessionStorage.clear();
             this.aiCache.clear();
             this.tasks = [];
             this.metrics = { totalTasks: 0, completedToday: 0, productivityScore: 0 };
             
-            document.getElementById('resetModal')?.classList.remove('active');
-            document.getElementById('resetCountdown').textContent = '';
+            this.toggleModal('resetModal', false); 
+            const countdownEl = document.getElementById('resetCountdown');
+            if(countdownEl) countdownEl.textContent = '';
 
             this.updateUI();
             this.showNotification('Application réinitialisée avec succès', 'success');
         } catch (error) {
-            console.error('Erreur lors de la réinitialisation:', error);
+            console.error('Error during reset:', error);
             this.showNotification('Erreur lors de la réinitialisation', 'error');
         }
     }
 
-    // === GESTION DES ÉVÉNEMENTS ===
+    // === EVENT LISTENERS ===
     setupEventListeners() {
         document.getElementById('addTaskBtn')?.addEventListener('click', (e) => { e.preventDefault(); this.handleAddTask(); });
         document.getElementById('taskInput')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.handleAddTask(); }});
 
         const toolButtons = {
             voiceBtn: () => this.startVoiceRecognition(),
-            aiBtn: () => this.toggleModal('aiModal'),
+            aiBtn: () => this.toggleModal('aiModal', true),
             searchBtn: () => this.toggleSearch(),
             filterBtn: () => this.showNotification('Filtres avancés bientôt disponibles !', 'info')
         };
-        Object.entries(toolButtons).forEach(([id, handler]) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); handler(); }));
+        Object.entries(toolButtons).forEach(([id, handler]) => {
+            const btn = document.getElementById(id);
+            if(btn) { 
+                if (btn.handler) btn.removeEventListener('click', btn.handler);
+                btn.handler = (e) => { e.preventDefault(); handler(); }; 
+                btn.addEventListener('click', btn.handler);
+            }
+        });
+
 
         document.getElementById('themeToggle')?.addEventListener('click', (e) => { e.preventDefault(); this.toggleTheme(); });
         document.getElementById('resetApp')?.addEventListener('click', (e) => { e.preventDefault(); this.showResetModal(); });
@@ -906,29 +1104,41 @@ class TodoListCore {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const modalId = btn.dataset.modal || btn.closest('.modal-overlay')?.id;
-                if (modalId) this.toggleModal(modalId);
+                if (modalId) this.toggleModal(modalId, false);
             });
         });
 
-        const aiModalButtons = {
-            generateSubtasks: () => this.handleGenerateSubtasks(),
-            categorizeTask: () => this.handleCategorizeTask(),
-            suggestPriorities: () => this.handleSuggestPriorities()
-        };
-        Object.entries(aiModalButtons).forEach(([id, handler]) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); handler(); this.toggleModal('aiModal'); }));
+        document.getElementById('generateSubtasksModalBtn')?.addEventListener('click', () => this.handleAIFeature('generateSubtasksModalBtn'));
+        document.getElementById('categorizeTaskModalBtn')?.addEventListener('click', () => this.handleAIFeature('categorizeTaskModalBtn'));
+        document.getElementById('suggestPrioritiesModalBtn')?.addEventListener('click', () => this.handleAIFeature('suggestPrioritiesModalBtn'));
         
         document.getElementById('cancelReset')?.addEventListener('click', (e) => {
             e.preventDefault();
-            document.getElementById('resetModal')?.classList.remove('active');
-            document.getElementById('resetCountdown').textContent = '';
-            const confirmBtn = document.getElementById('confirmReset');
-            const input = document.getElementById('resetConfirmInput');
-            if(confirmBtn && input) confirmBtn.disabled = input.value !== 'RESET';
+            this.toggleModal('resetModal', false);
+            const countdownEl = document.getElementById('resetCountdown');
+            if(countdownEl) countdownEl.textContent = '';
+            this.validateResetInput(); 
         });
         document.getElementById('confirmReset')?.addEventListener('click', (e) => {
             e.preventDefault();
-            if (!e.target.disabled) this.confirmReset();
+            this.confirmReset();
         });
+
+        document.getElementById('detailsSaveChangesBtn')?.addEventListener('click', () => this.handleSaveTaskDetails());
+        document.getElementById('detailsAddSubtaskBtn')?.addEventListener('click', () => this.handleAddSubtaskFromModal());
+        document.getElementById('detailsDeleteTaskBtn')?.addEventListener('click', () => {
+            if (this.currentEditingTaskId) {
+                this.deleteTask(this.currentEditingTaskId, true); 
+            }
+        });
+        document.getElementById('detailsNewSubtaskTitle')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.handleAddSubtaskFromModal();
+            }
+        });
+
+
         this.setupDragAndDrop();
     }
 
@@ -938,22 +1148,38 @@ class TodoListCore {
             const taskInputFocused = document.activeElement === document.getElementById('taskInput');
             const searchInputFocused = document.activeElement === document.getElementById('searchInput');
             const resetInputFocused = document.activeElement === document.getElementById('resetConfirmInput');
+            const detailsTitleFocused = document.activeElement === document.getElementById('detailsTaskTitle');
+            const detailsSubtaskFocused = document.activeElement === document.getElementById('detailsNewSubtaskTitle');
+
 
             if (e.key === 'Escape') {
                 if (activeModal) {
                     e.preventDefault();
-                    this.toggleModal(activeModal.id);
+                    this.toggleModal(activeModal.id, false);
                 } else if (document.getElementById('searchSection')?.style.display !== 'none') {
                     e.preventDefault();
-                    this.toggleSearch();
+                    this.toggleSearch(false); 
                 }
             }
-            if (taskInputFocused || searchInputFocused || resetInputFocused) return;
+            if (taskInputFocused || searchInputFocused || resetInputFocused || detailsTitleFocused || detailsSubtaskFocused) return;
 
-            if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'r') { e.preventDefault(); this.showResetModal(); }
-            if (e.ctrlKey && e.key.toLowerCase() === 'f') { e.preventDefault(); this.toggleSearch(); }
-            if (e.key.toLowerCase() === 'n' && !activeModal) { e.preventDefault(); document.getElementById('taskInput')?.focus(); } 
-            if (e.key.toLowerCase() === 'm' && !activeModal) { e.preventDefault(); this.toggleModal('aiModal'); } 
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') { 
+                e.preventDefault(); 
+                document.getElementById('taskInput')?.focus(); 
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { 
+                e.preventDefault(); 
+                this.toggleSearch(); 
+                document.getElementById('searchInput')?.focus();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                this.toggleTheme();
+            }
+             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') { 
+                e.preventDefault();
+                this.startVoiceRecognition();
+            }
         });
     }
 
@@ -975,26 +1201,76 @@ class TodoListCore {
         titleInput.focus();
     }
 
-    // === UTILITAIRES ===
-    toggleModal(modalId) {
-        document.getElementById(modalId)?.classList.toggle('active');
+    // === UTILITIES ===
+    toggleModal(modalId, forceOpen = null) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+    
+        const isActive = modal.classList.contains('active');
+        let SouldBeActive;
+
+        if (forceOpen !== null) {
+            SouldBeActive = forceOpen;
+        } else {
+            SouldBeActive = !isActive;
+        }
+    
+        if (SouldBeActive) {
+            modal.classList.add('active');
+            const firstFocusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (firstFocusable && modalId !== 'taskDetailsModal') firstFocusable.focus(); 
+        } else {
+            modal.classList.remove('active');
+            if (modalId === 'taskDetailsModal') { // Clear only when closing details modal
+                 this.currentEditingTaskId = null;
+            }
+        }
+    
+        if (modalId === 'aiModal' && SouldBeActive) {
+            this.updateAIStatus();
+        }
     }
 
     toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
         const toggleIcon = document.querySelector('#sidebarToggle i');
-        if (sidebar) {
+        if (sidebar && toggleIcon) {
             const isCollapsed = sidebar.classList.toggle('collapsed');
-            if (toggleIcon) toggleIcon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+            toggleIcon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+            localStorage.setItem('todocore_sidebar_collapsed_2025_v2', isCollapsed);
+        }
+    }
+    
+    loadSidebarState() {
+        const sidebar = document.getElementById('sidebar');
+        const toggleIcon = document.querySelector('#sidebarToggle i');
+        const isCollapsed = localStorage.getItem('todocore_sidebar_collapsed_2025_v2') === 'true';
+        if (sidebar && toggleIcon && isCollapsed) {
+            sidebar.classList.add('collapsed');
+            toggleIcon.className = 'fas fa-chevron-right';
         }
     }
 
-    toggleSearch() {
+
+    toggleSearch(forceState = null) { 
         const searchSection = document.getElementById('searchSection');
         if (searchSection) {
-            const isVisible = searchSection.style.display !== 'none';
-            searchSection.style.display = isVisible ? 'none' : 'block';
-            if (!isVisible) document.getElementById('searchInput')?.focus();
+            let SouldBeVisible;
+            if (forceState !== null) {
+                SouldBeVisible = forceState;
+            } else {
+                SouldBeVisible = searchSection.style.display === 'none';
+            }
+
+            if (SouldBeVisible) {
+                searchSection.style.display = 'flex'; 
+                document.getElementById('searchInput')?.focus();
+            } else {
+                searchSection.style.display = 'none';
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.value = ''; 
+                this.performSearch(''); 
+            }
         }
     }
 
@@ -1003,13 +1279,15 @@ class TodoListCore {
         document.documentElement.setAttribute('data-color-scheme', this.currentTheme);
         const themeIcon = document.querySelector('#themeToggle i');
         if (themeIcon) themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-        localStorage.setItem('todocore_theme', this.currentTheme);
+        localStorage.setItem('todocore_theme_2025_v2', this.currentTheme);
+        this.updateCompletionScoreCircle(); 
     }
     
     loadTheme() {
-        const savedTheme = localStorage.getItem('todocore_theme');
+        const savedTheme = localStorage.getItem('todocore_theme_2025_v2');
         const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        this.currentTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+        this.currentTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light'); 
+        
         document.documentElement.setAttribute('data-color-scheme', this.currentTheme);
         const themeIcon = document.querySelector('#themeToggle i');
         if (themeIcon) themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
@@ -1019,17 +1297,25 @@ class TodoListCore {
         document.getElementById('loadingOverlay')?.classList.toggle('active', show);
     }
 
-    updateSyncStatus(synced) {
-        const syncIcon = document.getElementById('syncStatus');
-        const saveStatusIcon = document.getElementById('saveStatus');
-        const saveStatusText = saveStatusIcon?.parentElement.querySelector('span');
+    updateSyncStatus(synced, text = null) {
+        const syncIconEl = document.getElementById('syncStatus');
+        const syncTextEl = document.getElementById('syncStatusText');
+        const saveIconEl = document.getElementById('saveStatus');
+        const saveTextEl = document.getElementById('saveStatusText');
 
-        if (syncIcon) syncIcon.className = `fas fa-sync-alt ${synced ? '' : 'fa-spin'}`;
-        if (saveStatusIcon && saveStatusText) {
-            saveStatusIcon.className = `fas ${synced ? 'fa-save' : 'fa-hourglass-half'}`;
-            saveStatusText.textContent = synced ? 'Sauvegardé' : 'Sauvegarde...';
+        if (synced) {
+            if (syncIconEl) syncIconEl.className = 'fas fa-check-circle'; 
+            if (syncTextEl) syncTextEl.textContent = 'Synchronisé';
+            if (saveIconEl) saveIconEl.className = 'fas fa-save';
+            if (saveTextEl) saveTextEl.textContent = text || 'Sauvegardé';
+        } else {
+            if (syncIconEl) syncIconEl.className = 'fas fa-sync-alt fa-spin';
+            if (syncTextEl) syncTextEl.textContent = text || 'Synchronisation...';
+            if (saveIconEl) saveIconEl.className = 'fas fa-hourglass-half';
+            if (saveTextEl) saveTextEl.textContent = text || 'Sauvegarde...';
         }
     }
+
 
     generateId() {
         return `tdc-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
@@ -1044,21 +1330,20 @@ class TodoListCore {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM chargé, initialisation de l\'application...');
     if (typeof TodoListCore !== "undefined") {
         window.todoApp = new TodoListCore();
         window.todoApp.loadTheme(); 
+        window.todoApp.loadSidebarState();
         window.todoApp.init();
-        console.log('Application initialisée et exposée globalement');
     } else {
-        console.error("TodoListCore n'est pas défini. Vérifiez le chargement du script.");
+        console.error("TodoListCore is not defined. Check script loading.");
         const body = document.querySelector('body');
         if(body) body.innerHTML = "<p style='color:red; font-family:sans-serif; padding:20px;'>Erreur critique: Impossible de charger l'application. Vérifiez la console.</p>";
     }
 });
 
 window.addEventListener('error', (event) => {
-    console.error('Erreur globale:', event.error, event.message, event.filename, event.lineno);
+    console.error('Global error:', event.error, event.message, event.filename, event.lineno);
     if (window.todoApp) {
         window.todoApp.showNotification(`Erreur: ${event.message || 'Une erreur inattendue s\'est produite'}`, 'error', 0);
     }
@@ -1068,24 +1353,24 @@ window.addEventListener('online', () => {
     if (window.todoApp) {
         window.todoApp.showNotification('Connexion rétablie', 'success');
         const connectionStatusIcon = document.getElementById('connectionStatus');
-        const connectionStatusText = connectionStatusIcon?.parentElement.querySelector('span');
+        const connectionStatusText = document.getElementById('connectionStatusText');
         if(connectionStatusIcon && connectionStatusText) {
             connectionStatusIcon.className = 'fas fa-wifi';
             connectionStatusText.textContent = 'En ligne';
         }
-        window.todoApp.updateSyncStatus(true);
+        window.todoApp.updateSyncStatus(true, 'Connecté');
     }
 });
 
 window.addEventListener('offline', () => {
     if (window.todoApp) {
-        window.todoApp.showNotification('Mode hors ligne activé', 'warning');
+        window.todoApp.showNotification('Mode hors ligne activé. Certaines fonctionnalités (IA) peuvent être indisponibles.', 'warning');
         const connectionStatusIcon = document.getElementById('connectionStatus');
-        const connectionStatusText = connectionStatusIcon?.parentElement.querySelector('span');
+        const connectionStatusText = document.getElementById('connectionStatusText');
         if(connectionStatusIcon && connectionStatusText) {
-            connectionStatusIcon.className = 'fas fa-wifi-slash';
+            connectionStatusIcon.className = 'fas fa-wifi-slash'; 
             connectionStatusText.textContent = 'Hors ligne';
         }
-        window.todoApp.updateSyncStatus(false);
+        window.todoApp.updateSyncStatus(false, 'Hors ligne');
     }
 });

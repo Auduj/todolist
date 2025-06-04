@@ -18,7 +18,7 @@
 <body>
     <!-- Header -->
     <header class="header-premium">
-        <div class="header-content">
+        <div class="header-content glass-effect"> <!-- Applied glass-effect here -->
             <div class="logo-section">
                 <div class="logo-gradient">
                     <i class="fas fa-tasks"></i>
@@ -42,7 +42,7 @@
             </div>
             
             <div class="header-actions">
-                <button class="btn-glass" id="themeToggle" title="Changer de thème">
+                <button class="btn-glass" id="themeToggle" title="Changer de thème (Ctrl+D)">
                     <i class="fas fa-moon"></i> <!-- Icon will be updated by JS -->
                 </button>
                 <button class="btn-glass btn-danger" id="resetApp" title="Réinitialiser">
@@ -54,7 +54,7 @@
 
     <!-- Toolbar -->
     <nav class="toolbar-premium">
-        <div class="toolbar-content">
+        <div class="toolbar-content glass-effect"> <!-- Applied glass-effect here -->
             <button class="tool-btn" id="voiceBtn" title="Dictée vocale (Ctrl+M)">
                 <i class="fas fa-microphone"></i>
                 <span>Dictée</span>
@@ -67,7 +67,7 @@
                 <i class="fas fa-search"></i>
                 <span>Recherche</span>
             </button>
-            <button class="tool-btn" id="filterBtn" title="Filtrer">
+            <button class="tool-btn" id="filterBtn" title="Filtrer (Bientôt disponible)">
                 <i class="fas fa-filter"></i>
                 <span>Filtres</span>
             </button>
@@ -77,10 +77,10 @@
     <!-- Main Interface -->
     <div class="main-container">
         <!-- Sidebar -->
-        <aside class="sidebar-analytics" id="sidebar">
+        <aside class="sidebar-analytics glass-effect" id="sidebar"> <!-- Applied glass-effect here -->
             <div class="sidebar-header">
                 <h3>Dashboard</h3>
-                <button class="sidebar-toggle" id="sidebarToggle" title="Basculer la barre latérale">
+                <button class="sidebar-toggle btn" id="sidebarToggle" title="Basculer la barre latérale">
                     <i class="fas fa-chevron-left"></i>
                 </button>
             </div>
@@ -102,14 +102,14 @@
                         </div>
                     </div>
                     <div class="metric-card">
-                        <i class="fas fa-spinner fa-spin"></i> <!-- Updated icon -->
+                        <i class="fas fa-spinner fa-spin"></i>
                         <div class="metric-info">
                             <span class="metric-value" id="inProgressCount">0</span>
                             <span class="metric-label">En cours</span>
                         </div>
                     </div>
                     <div class="metric-card">
-                        <i class="fas fa-check-double"></i> <!-- Updated icon -->
+                        <i class="fas fa-check-double"></i>
                         <div class="metric-info">
                             <span class="metric-value" id="doneCount">0</span>
                             <span class="metric-label">Terminées</span>
@@ -121,6 +121,7 @@
                     <h4>Par Catégorie</h4>
                     <div class="category-list" id="categoryStats">
                         <!-- Categories populated by JS -->
+                         <p class="empty-column-text">Aucune tâche catégorisée.</p>
                     </div>
                 </div>
             </div>
@@ -129,7 +130,7 @@
         <!-- Tasks Area -->
         <main class="tasks-area">
             <!-- Quick Add Form -->
-            <div class="quick-add-section">
+            <div class="quick-add-section glass-effect" id="quickAddSection"> <!-- Applied glass-effect here -->
                 <div class="add-task-form">
                     <input type="text" id="taskInput" placeholder="Nouvelle tâche... (N)" class="task-input-premium">
                     <select id="categorySelect" class="category-select custom-select">
@@ -156,9 +157,9 @@
 
             <!-- Search Bar -->
             <div class="search-section" id="searchSection" style="display: none;">
-                <div class="search-bar">
+                <div class="search-bar glass-effect"> <!-- Applied glass-effect here -->
                     <input type="text" id="searchInput" placeholder="Rechercher dans vos tâches... (Esc pour fermer)" class="search-input">
-                    <button id="clearSearch" class="btn-clear" title="Effacer la recherche">
+                    <button id="clearSearch" class="btn-clear btn" title="Effacer la recherche">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -166,7 +167,7 @@
 
             <!-- Kanban Columns -->
             <div class="kanban-board">
-                <div class="column-container" data-column="todo">
+                <div class="column-container glass-effect" data-column="todo"> <!-- Applied glass-effect here -->
                     <div class="column-header">
                         <div class="column-title">
                             <i class="fas fa-list-ul"></i>
@@ -174,29 +175,35 @@
                         </div>
                         <div class="task-counter" id="todoCounter">0</div>
                     </div>
-                    <div class="tasks-list" id="todoList"></div>
+                    <div class="tasks-list" id="todoList">
+                         <p class="empty-column-text">Aucune tâche ici. Ajoutez-en une !</p>
+                    </div>
                 </div>
 
-                <div class="column-container" data-column="inprogress">
+                <div class="column-container glass-effect" data-column="inprogress"> <!-- Applied glass-effect here -->
                     <div class="column-header">
                         <div class="column-title">
-                            <i class="fas fa-spinner"></i> <!-- Updated icon -->
+                            <i class="fas fa-spinner"></i>
                             <span>En cours</span>
                         </div>
                         <div class="task-counter" id="inprogressCounter">0</div>
                     </div>
-                    <div class="tasks-list" id="inprogressList"></div>
+                    <div class="tasks-list" id="inprogressList">
+                        <p class="empty-column-text">Aucune tâche ici.</p>
+                    </div>
                 </div>
 
-                <div class="column-container" data-column="done">
+                <div class="column-container glass-effect" data-column="done"> <!-- Applied glass-effect here -->
                     <div class="column-header">
                         <div class="column-title">
-                            <i class="fas fa-check-double"></i> <!-- Updated icon -->
+                            <i class="fas fa-check-double"></i>
                             <span>Terminé</span>
                         </div>
                         <div class="task-counter" id="doneCounter">0</div>
                     </div>
-                    <div class="tasks-list" id="doneList"></div>
+                    <div class="tasks-list" id="doneList">
+                        <p class="empty-column-text">Aucune tâche ici.</p>
+                    </div>
                 </div>
             </div>
         </main>
@@ -205,31 +212,31 @@
     <!-- Modals -->
     <!-- AI Modal -->
     <div class="modal-overlay" id="aiModal">
-        <div class="modal-content ai-modal">
+        <div class="modal-content glass-effect ai-modal"> <!-- Applied glass-effect here -->
             <div class="modal-header">
                 <h3><i class="fas fa-robot"></i> Assistant IA</h3>
-                <button class="modal-close" data-modal="aiModal" title="Fermer">
+                <button class="modal-close btn" data-modal="aiModal" title="Fermer">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body">
                 <p class="modal-description">Optimisez votre productivité avec l'intelligence artificielle.</p>
                 <div class="ai-features">
-                    <button class="ai-feature-btn" id="generateSubtasks">
+                    <button class="ai-feature-btn btn" id="generateSubtasksModalBtn"> <!-- Changed ID -->
                         <i class="fas fa-sitemap"></i>
                         <div>
                             <strong>Générer des sous-tâches</strong>
                             <p>L'IA décompose votre tâche active en étapes.</p>
                         </div>
                     </button>
-                    <button class="ai-feature-btn" id="categorizeTask">
+                    <button class="ai-feature-btn btn" id="categorizeTaskModalBtn"> <!-- Changed ID -->
                         <i class="fas fa-tags"></i>
                         <div>
                             <strong>Catégoriser automatiquement</strong>
                             <p>Classification intelligente de la tâche active.</p>
                         </div>
                     </button>
-                    <button class="ai-feature-btn" id="suggestPriorities">
+                    <button class="ai-feature-btn btn" id="suggestPrioritiesModalBtn"> <!-- Changed ID -->
                         <i class="fas fa-sort-amount-up"></i>
                         <div>
                             <strong>Suggérer les priorités</strong>
@@ -246,10 +253,10 @@
 
     <!-- Reset Modal -->
     <div class="modal-overlay" id="resetModal">
-        <div class="modal-content reset-modal">
+        <div class="modal-content glass-effect reset-modal"> <!-- Applied glass-effect here -->
             <div class="modal-header">
                 <h3><i class="fas fa-exclamation-triangle"></i> Réinitialisation Complète</h3>
-                 <button class="modal-close" data-modal="resetModal" title="Fermer">
+                 <button class="modal-close btn" data-modal="resetModal" title="Fermer">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -260,7 +267,7 @@
                 <div class="countdown-display" id="resetCountdown"></div>
                 <div class="modal-actions">
                     <button class="btn btn--secondary" id="cancelReset">Annuler</button>
-                    <button class="btn btn--danger" id="confirmReset" disabled> <!-- Changed to btn--danger -->
+                    <button class="btn btn--danger" id="confirmReset" disabled>
                         Réinitialiser
                     </button>
                 </div>
@@ -268,11 +275,70 @@
         </div>
     </div>
 
+    <!-- Task Details Modal (NEW) -->
+    <div class="modal-overlay" id="taskDetailsModal">
+        <div class="modal-content glass-effect task-details-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Détails de la Tâche</h3>
+                <button class="modal-close btn" data-modal="taskDetailsModal" title="Fermer">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="detailsTaskId">
+                <div class="form-group">
+                    <label for="detailsTaskTitle" class="form-label">Titre de la tâche :</label>
+                    <input type="text" id="detailsTaskTitle" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="detailsTaskCategory" class="form-label">Catégorie :</label>
+                    <select id="detailsTaskCategory" class="custom-select">
+                        <option value="">Aucune</option>
+                        <option value="Travail">💼 Travail</option>
+                        <option value="Personnel">👤 Personnel</option>
+                        <option value="Urgent">🚨 Urgent</option>
+                        <option value="Shopping">🛒 Shopping</option>
+                        <option value="Santé">🏥 Santé</option>
+                        <option value="Projets">📋 Projets</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="detailsTaskPriority" class="form-label">Priorité :</label>
+                    <select id="detailsTaskPriority" class="custom-select">
+                        <option value="Basse">🟢 Basse</option>
+                        <option value="Normale">🟡 Normale</option>
+                        <option value="Haute">🟠 Haute</option>
+                        <option value="Critique">🔴 Critique</option>
+                    </select>
+                </div>
+
+                <div class="subtasks-section">
+                    <h4><i class="fas fa-list-check"></i> Sous-tâches</h4>
+                    <div id="detailsSubtaskList" class="details-subtask-list">
+                        <!-- Subtasks will be populated by JS -->
+                        <p class="empty-column-text">Aucune sous-tâche.</p>
+                    </div>
+                    <div class="add-subtask-form">
+                        <input type="text" id="detailsNewSubtaskTitle" class="form-control" placeholder="Nouvelle sous-tâche...">
+                        <button id="detailsAddSubtaskBtn" class="btn btn--primary btn--sm">
+                            <i class="fas fa-plus"></i> Ajouter
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="detailsDeleteTaskBtn" class="btn btn--danger"><i class="fas fa-trash"></i> Supprimer Tâche</button>
+                <button id="detailsSaveChangesBtn" class="btn btn--primary"><i class="fas fa-save"></i> Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Notifications Area -->
     <div class="notifications-container" id="notificationsContainer"></div>
 
     <!-- Status Bar -->
-    <div class="status-bar">
+    <div class="status-bar"> <!-- Removed glass-effect for better readability/less clutter -->
         <div class="status-item">
             <i class="fas fa-wifi" id="connectionStatus"></i>
             <span id="connectionStatusText">En ligne</span>

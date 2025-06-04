@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TodoList IA Core</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#21808D">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header Premium -->
+    <header class="header-premium">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-gradient">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <h1>TodoList IA Core</h1>
+            </div>
+            
+            <div class="stats-realtime">
+                <div class="stat-item">
+                    <span class="stat-value" id="totalTasks">0</span>
+                    <span class="stat-label">Tâches</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="completedToday">0</span>
+                    <span class="stat-label">Terminées</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="productivityScore">0%</span>
+                    <span class="stat-label">Productivité</span>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <button class="btn-glass" id="themeToggle" title="Changer de thème">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="btn-glass btn-danger" id="resetApp" title="Réinitialiser">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Barre d'outils TodoList -->
+    <nav class="toolbar-premium">
+        <div class="toolbar-content">
+            <button class="tool-btn" id="voiceBtn" title="Dictée vocale">
+                <i class="fas fa-microphone"></i>
+                <span>Dictée</span>
+            </button>
+            <button class="tool-btn" id="aiBtn" title="Assistant IA">
+                <i class="fas fa-robot"></i>
+                <span>IA</span>
+            </button>
+            <button class="tool-btn" id="searchBtn" title="Rechercher">
+                <i class="fas fa-search"></i>
+                <span>Recherche</span>
+            </button>
+            <button class="tool-btn" id="filterBtn" title="Filtrer">
+                <i class="fas fa-filter"></i>
+                <span>Filtres</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Interface principale avec sidebar -->
+    <div class="main-container">
+        <!-- Sidebar TodoList Stats -->
+        <aside class="sidebar-analytics" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Dashboard TodoList</h3>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+            
+            <div class="analytics-section">
+                <div class="completion-score">
+                    <div class="score-circle" id="completionCircle">
+                        <span id="completionScore">0%</span>
+                    </div>
+                    <p>Taux de Completion</p>
+                </div>
+                
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <i class="fas fa-list"></i>
+                        <div class="metric-info">
+                            <span class="metric-value" id="todoCount">0</span>
+                            <span class="metric-label">À faire</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <i class="fas fa-play"></i>
+                        <div class="metric-info">
+                            <span class="metric-value" id="inProgressCount">0</span>
+                            <span class="metric-label">En cours</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <i class="fas fa-check"></i>
+                        <div class="metric-info">
+                            <span class="metric-value" id="doneCount">0</span>
+                            <span class="metric-label">Terminées</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="categories-stats">
+                    <h4>Répartition par catégorie</h4>
+                    <div class="category-list" id="categoryStats">
+                        <!-- Categories will be populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Zone principale des tâches -->
+        <main class="tasks-area">
+            <!-- Formulaire de création rapide -->
+            <div class="quick-add-section">
+                <div class="add-task-form">
+                    <input type="text" id="taskInput" placeholder="Nouvelle tâche..." class="task-input-premium">
+                    <select id="categorySelect" class="category-select">
+                        <option value="">Catégorie</option>
+                        <option value="Travail">💼 Travail</option>
+                        <option value="Personnel">👤 Personnel</option>
+                        <option value="Urgent">🚨 Urgent</option>
+                        <option value="Shopping">🛒 Shopping</option>
+                        <option value="Santé">🏥 Santé</option>
+                        <option value="Projets">📋 Projets</option>
+                    </select>
+                    <select id="prioritySelect" class="priority-select">
+                        <option value="">Priorité</option>
+                        <option value="Basse">🟢 Basse</option>
+                        <option value="Normale">🟡 Normale</option>
+                        <option value="Haute">🟠 Haute</option>
+                        <option value="Critique">🔴 Critique</option>
+                    </select>
+                    <button id="addTaskBtn" class="btn-add-premium">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Barre de recherche -->
+            <div class="search-section" id="searchSection" style="display: none;">
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="Rechercher dans vos tâches..." class="search-input">
+                    <button id="clearSearch" class="btn-clear">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Colonnes Kanban -->
+            <div class="kanban-board">
+                <div class="column-container" data-column="todo">
+                    <div class="column-header">
+                        <div class="column-title">
+                            <i class="fas fa-list-ul"></i>
+                            <span>À faire</span>
+                        </div>
+                        <div class="task-counter" id="todoCounter">0</div>
+                    </div>
+                    <div class="tasks-list" id="todoList"></div>
+                </div>
+
+                <div class="column-container" data-column="inprogress">
+                    <div class="column-header">
+                        <div class="column-title">
+                            <i class="fas fa-play-circle"></i>
+                            <span>En cours</span>
+                        </div>
+                        <div class="task-counter" id="inprogressCounter">0</div>
+                    </div>
+                    <div class="tasks-list" id="inprogressList"></div>
+                </div>
+
+                <div class="column-container" data-column="done">
+                    <div class="column-header">
+                        <div class="column-title">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Terminé</span>
+                        </div>
+                        <div class="task-counter" id="doneCounter">0</div>
+                    </div>
+                    <div class="tasks-list" id="doneList"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modales -->
+    <!-- Modal IA -->
+    <div class="modal-overlay" id="aiModal">
+        <div class="modal-content ai-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-robot"></i> Assistant IA TodoList</h3>
+                <button class="modal-close" data-modal="aiModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="ai-features">
+                    <button class="ai-feature-btn" id="generateSubtasks">
+                        <i class="fas fa-sitemap"></i>
+                        <div>
+                            <strong>Générer des sous-tâches</strong>
+                            <p>L'IA décompose votre dernière tâche en étapes</p>
+                        </div>
+                    </button>
+                    <button class="ai-feature-btn" id="categorizeTask">
+                        <i class="fas fa-tags"></i>
+                        <div>
+                            <strong>Catégoriser automatiquement</strong>
+                            <p>Classification intelligente des tâches</p>
+                        </div>
+                    </button>
+                    <button class="ai-feature-btn" id="suggestPriorities">
+                        <i class="fas fa-sort-amount-up"></i>
+                        <div>
+                            <strong>Suggérer les priorités</strong>
+                            <p>Analyse du contenu pour prioriser</p>
+                        </div>
+                    </button>
+                </div>
+                <div class="ai-status" id="aiStatus">
+                    <i class="fas fa-check-circle"></i>
+                    <span>IA prête - Clé API configurée</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Reset -->
+    <div class="modal-overlay" id="resetModal">
+        <div class="modal-content reset-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Réinitialisation Complète</h3>
+            </div>
+            <div class="modal-body">
+                <p class="warning-text">⚠️ Cette action supprimera TOUTES vos tâches et données de façon permanente !</p>
+                <p>Tapez <strong>RESET</strong> pour confirmer :</p>
+                <input type="text" id="resetConfirmInput" placeholder="Tapez RESET" class="form-control">
+                <div class="countdown-display" id="resetCountdown"></div>
+                <div class="modal-actions">
+                    <button class="btn btn--secondary" id="cancelReset">Annuler</button>
+                    <button class="btn btn--primary" id="confirmReset" disabled>
+                        Réinitialiser
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zone de notifications -->
+    <div class="notifications-container" id="notificationsContainer"></div>
+
+    <!-- Indicateur de statut -->
+    <div class="status-bar">
+        <div class="status-item">
+            <i class="fas fa-wifi" id="connectionStatus"></i>
+            <span>En ligne</span>
+        </div>
+        <div class="status-item">
+            <i class="fas fa-sync-alt" id="syncStatus"></i>
+            <span>Synchronisé</span>
+        </div>
+        <div class="status-item">
+            <i class="fas fa-save" id="saveStatus"></i>
+            <span>Sauvegardé</span>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+            <p>Génération IA en cours...</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

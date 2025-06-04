@@ -140,6 +140,17 @@ body {
   --z-modal: 1010;
   --z-notification: 1050;
   --z-loading: 2000;
+
+  /* Dimensions du header pour calculs */
+  --header-padding-vertical: var(--space-md); /* padding top/bottom de .header-premium */
+  --header-content-padding-vertical: var(--space-sm); /* padding top/bottom de .header-content */
+  --header-content-intrinsic-height: 40px; /* Hauteur approx du logo et des boutons */
+  --header-total-height: calc( (var(--header-padding-vertical) * 2) + (var(--header-content-padding-vertical) * 2) + var(--header-content-intrinsic-height) ); /* ~88px */
+
+  --toolbar-padding-vertical: var(--space-sm);
+  --toolbar-content-padding-vertical: var(--space-sm);
+  --toolbar-content-intrinsic-height: 44px; /* Hauteur du tool-btn */
+  --toolbar-total-height: calc( (var(--toolbar-padding-vertical) * 2) + (var(--toolbar-content-padding-vertical) * 2) + var(--toolbar-content-intrinsic-height) ); /* ~76px */
 }
 
 /* Mode Sombre */
@@ -226,15 +237,15 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  padding: var(--space-md) var(--space-lg); /* Padding for the sticky container itself */
+  padding: var(--header-padding-vertical) var(--space-lg);
 }
-.header-premium .header-content { /* This element gets the glass effect */
+.header-premium .header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
   max-width: 1400px;
   margin: 0 auto;
-  padding: var(--space-sm) var(--space-md); /* Padding inside the glass element */
+  padding: var(--header-content-padding-vertical) var(--space-md);
 }
 .logo-section {
   display: flex;
@@ -242,14 +253,14 @@ a:hover {
   gap: var(--space-sm);
 }
 .logo-gradient {
-  width: 40px;
-  height: 40px;
+  width: var(--header-content-intrinsic-height);
+  height: var(--header-content-intrinsic-height);
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--cream); /* Icône claire sur fond coloré */
+  color: var(--cream);
   font-size: var(--font-size-lg);
   transition: transform var(--duration-normal) var(--ease-standard);
 }
@@ -272,7 +283,7 @@ a:hover {
   vertical-align: middle;
 }
 [data-color-scheme="dark"] .year-badge {
-  color: var(--dark-bg); /* Ensure contrast for badge text in dark mode */
+  color: var(--dark-bg);
   background-color: var(--dark-accent);
 }
 .stats-realtime {
@@ -282,10 +293,10 @@ a:hover {
 .stat-item {
   text-align: center;
   padding: var(--space-xs) var(--space-sm);
-  background-color: rgba(0,0,0,0.03); /* Fond subtil pour les stats */
+  background-color: rgba(0,0,0,0.03);
   border-radius: var(--radius-sm);
   min-width: 80px;
-  border: 1px solid transparent; /* for consistency */
+  border: 1px solid transparent;
 }
 [data-color-scheme="dark"] .stat-item {
   background-color: rgba(255,255,255,0.03);
@@ -322,7 +333,7 @@ a:hover {
   justify-content: center;
   gap: var(--space-sm);
   text-align: center;
-  line-height: 1.4; /* Ensure text is vertically centered */
+  line-height: 1.4;
 }
 .btn:hover {
   transform: translateY(-2px);
@@ -334,16 +345,16 @@ a:hover {
   box-shadow: var(--shadow-soft);
 }
 
-.btn-glass { /* Style spécifique pour les boutons header/toolbar */
+.btn-glass {
   width: 40px;
   height: 40px;
-  padding: 0; /* Pour que l'icône soit centrée */
+  padding: 0;
   font-size: var(--font-size-md);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--duration-normal) var(--ease-standard);
-  border: 1px solid var(--current-glass-border); /* Match glass effect border */
-  background-color: var(--current-glass-bg); /* Match glass effect bg */
+  border: 1px solid var(--current-glass-border);
+  background-color: var(--current-glass-bg);
   color: var(--color-icon);
   display: inline-flex;
   align-items: center;
@@ -368,7 +379,7 @@ a:hover {
 .btn-glass.btn-danger:hover, .btn.btn--danger:hover {
   background-color: rgba(191, 25, 34, 0.2) !important;
   box-shadow: 0 0 10px rgba(191, 25, 34, 0.3);
-  color: var(--priority-critical) !important; /* Ensure color remains on hover */
+  color: var(--priority-critical) !important;
 }
 .btn--primary {
   background-color: var(--color-primary);
@@ -378,7 +389,7 @@ a:hover {
 .btn--primary:hover {
   background-color: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
-  color: var(--color-btn-primary-text); /* Ensure text color persists */
+  color: var(--color-btn-primary-text);
 }
 .btn--secondary {
   background-color: var(--color-surface);
@@ -401,49 +412,50 @@ a:hover {
 
 /* Toolbar */
 .toolbar-premium {
-  padding: var(--space-sm) var(--space-lg);
+  padding: var(--toolbar-padding-vertical) var(--space-lg);
   margin-bottom: var(--space-lg);
 }
-.toolbar-premium .toolbar-content { /* Appliquer l'effet glass au contenu */
+.toolbar-premium .toolbar-content {
   display: flex;
   justify-content: center;
   gap: var(--space-md);
   max-width: 800px;
   margin: 0 auto;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--toolbar-content-padding-vertical) var(--space-md);
   flex-wrap: wrap;
 }
 .tool-btn {
   flex-direction: column;
   min-width: 80px;
+  height: var(--toolbar-content-intrinsic-height);
   padding: var(--space-sm);
   border: 1px solid var(--color-border);
   background-color: var(--color-surface);
-  color: var(--color-text); /* Ensure text color is set */
+  color: var(--color-text);
 }
-.tool-btn:hover { /* Override generic btn hover for tool-btn */
+.tool-btn:hover {
    transform: translateY(-2px);
    box-shadow: var(--shadow-medium);
-   color: var(--color-primary); /* Specific hover color for tool-btn text */
+   color: var(--color-primary);
    border-color: var(--color-primary);
 }
 .tool-btn i {
   font-size: var(--font-size-lg);
   margin-bottom: var(--space-xs);
-  color: currentColor; /* Inherit color from .tool-btn */
+  color: currentColor;
 }
 .tool-btn span {
   font-size: var(--font-size-xs);
-  color: currentColor; /* Inherit color from .tool-btn */
+  color: currentColor;
 }
 .tool-btn.recording {
   background-color: var(--priority-critical) !important;
-  color: var(--cream) !important; /* Ensure text is cream */
+  color: var(--cream) !important;
   border-color: var(--priority-critical) !important;
   animation: pulse-animation 1s infinite;
 }
 .tool-btn.recording i, .tool-btn.recording span {
-    color: var(--cream) !important; /* Ensure icon and span are cream */
+    color: var(--cream) !important;
 }
 
 @keyframes pulse-animation {
@@ -455,7 +467,7 @@ a:hover {
 /* Main Container & Layout */
 .main-container {
   display: flex;
-  flex: 1; /* Pour que le contenu pousse le footer en bas */
+  flex: 1;
   gap: var(--space-lg);
   padding: 0 var(--space-lg) var(--space-lg);
   max-width: 1600px;
@@ -468,15 +480,9 @@ a:hover {
   width: 320px;
   flex-shrink: 0;
   padding: var(--space-md);
-  height: fit-content; /* S'adapte au contenu */
+  height: fit-content;
   position: sticky;
-  /* Ajuster en fonction de la hauteur du header (header padding + content padding + approx height) */
-  /* (70px est une estimation, pourrait être plus dynamique si le header est flexible) */
-  /* header padding: var(--space-md) soit 16px */
-  /* header-content padding: var(--space-sm) soit 8px. Total 16+8+8 = 32px top/bottom pour le contenu glass */
-  /* Plus la hauteur intrinsèque du contenu du header. ~40px pour logo/boutons */
-  /* Donc, top: (16px + 32px + 40px) + space-lg(24px) ~= 112px */
-  top: calc( (var(--space-md) * 2) + (var(--space-sm) * 2) + 40px + var(--space-lg) ); /* Ajusté */
+  top: calc(var(--header-total-height) + var(--space-lg));
   transition: transform var(--duration-slow) var(--ease-standard), opacity var(--duration-slow) var(--ease-standard);
 }
 .sidebar-analytics.collapsed {
@@ -495,10 +501,9 @@ a:hover {
 .sidebar-header h3 {
   font-size: var(--font-size-lg);
 }
-.sidebar-toggle { /* Already a .btn, so inherits base styles */
+.sidebar-toggle {
   font-size: var(--font-size-lg);
-  padding: var(--space-xs); /* Smaller padding for icon-only button */
-  /* Styles pour quand il est un déclencheur pour la sidebar cachée sont ci-dessous */
+  padding: var(--space-xs);
 }
 .completion-score {
   text-align: center;
@@ -513,17 +518,17 @@ a:hover {
   align-items: center;
   justify-content: center;
   position: relative;
-  background: conic-gradient(var(--color-primary) 0%, var(--color-surface) 0%); /* JS mettra à jour */
+  background: conic-gradient(var(--color-primary) 0%, var(--color-surface) 0%);
   transition: background var(--duration-slow) var(--ease-standard);
   box-shadow: var(--shadow-soft);
 }
-.score-circle::before { /* Centre effet glass */
+.score-circle::before {
   content: '';
   position: absolute;
   width: calc(100% - 20px);
   height: calc(100% - 20px);
   background-color: var(--current-glass-bg);
-  backdrop-filter: blur(calc(var(--glass-blur) / 2)); /* Moins de flou pour le centre */
+  backdrop-filter: blur(calc(var(--glass-blur) / 2));
   -webkit-backdrop-filter: blur(calc(var(--glass-blur) / 2));
   border-radius: 50%;
   border: 1px solid var(--current-glass-border);
@@ -590,9 +595,8 @@ a:hover {
 .category-list {
   max-height: 200px;
   overflow-y: auto;
-  padding-right: var(--space-sm); /* Pour la scrollbar */
+  padding-right: var(--space-sm);
 }
-/* Custom scrollbar for category list */
 .category-list::-webkit-scrollbar {
   width: 6px;
 }
@@ -624,16 +628,16 @@ a:hover {
   font-weight: var(--font-weight-medium);
 }
 [data-color-scheme="dark"] .category-count {
-  color: var(--dark-bg); /* Ensure contrast for badge text in dark mode */
+  color: var(--dark-bg);
 }
 
 
 /* Tasks Area */
 .tasks-area {
   flex: 1;
-  min-width: 0; /* Pour flexbox */
+  min-width: 0;
 }
-.quick-add-section { /* This is the glass container */
+.quick-add-section {
   margin-bottom: var(--space-lg);
   padding: var(--space-md);
 }
@@ -641,7 +645,7 @@ a:hover {
   display: flex;
   gap: var(--space-sm);
   align-items: center;
-  flex-wrap: wrap; /* Pour responsivité */
+  flex-wrap: wrap;
 }
 .task-input-premium, .custom-select {
   flex-grow: 1;
@@ -652,7 +656,7 @@ a:hover {
   color: var(--color-text);
   font-size: var(--font-size-base);
   transition: border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
-  min-width: 150px; /* Largeur minimale pour les selects */
+  min-width: 150px;
 }
 .task-input-premium::placeholder {
     color: var(--color-text-secondary);
@@ -674,12 +678,12 @@ a:hover {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23112d4e' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right var(--space-md) center;
-  padding-right: var(--space-xl); /* Espace pour la flèche */
+  padding-right: var(--space-xl);
 }
 [data-color-scheme="dark"] .custom-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23f7e8d3' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
 }
-.custom-select option { /* Style options for better readability */
+.custom-select option {
     background-color: var(--color-surface);
     color: var(--color-text);
 }
@@ -695,20 +699,20 @@ a:hover {
   height: 44px;
   font-size: var(--font-size-lg);
   flex-shrink: 0;
-  border-radius: var(--radius-md); /* Consistent radius */
+  border-radius: var(--radius-md);
 }
 .btn-add-premium:hover {
   opacity: 0.9;
   box-shadow: 0 0 15px var(--color-accent);
-  transform: translateY(-2px) scale(1.05); /* Match other button hovers */
+  transform: translateY(-2px) scale(1.05);
 }
 
 /* Search Bar */
 .search-section {
   margin-bottom: var(--space-lg);
-  padding: 0 var(--space-md); /* Pour aligner avec .quick-add-section */
+  padding: 0 var(--space-md);
 }
-.search-bar { /* This is the glass container */
+.search-bar {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -735,8 +739,8 @@ a:hover {
 [data-color-scheme="dark"] .search-input:focus {
   box-shadow: 0 0 0 3px rgba(var(--aquamarine-rgb, 0, 207, 200), 0.3);
 }
-.btn-clear { /* Already a .btn */
-  padding: var(--space-sm); /* Adjust if needed */
+.btn-clear {
+  padding: var(--space-sm);
 }
 
 /* Kanban Board */
@@ -745,7 +749,7 @@ a:hover {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-lg);
 }
-.column-container { /* This is the glass container */
+.column-container {
   padding: var(--space-md);
   min-height: 400px; 
   display: flex;
@@ -806,12 +810,12 @@ a:hover {
   border-left-width: 5px; 
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-md);
-  cursor: pointer; /* Changed from grab to pointer for general click */
+  cursor: pointer;
   box-shadow: var(--shadow-soft);
   transition: transform var(--duration-normal) var(--ease-standard), 
               box-shadow var(--duration-normal) var(--ease-standard),
               opacity var(--duration-normal) var(--ease-standard),
-              border-left-color var(--duration-normal) var(--ease-standard); /* Added for due date color */
+              border-left-color var(--duration-normal) var(--ease-standard);
   animation: task-appear var(--duration-slow) var(--ease-standard);
 }
 @keyframes task-appear {
@@ -826,9 +830,9 @@ a:hover {
   opacity: 0.6;
   transform: rotate(2deg) scale(0.95);
   box-shadow: var(--shadow-strong);
-  cursor: grabbing; /* Indicate dragging */
+  cursor: grabbing;
 }
-.task-item.drag-over-task { /* Style for when a task is dragged over another for subtask creation */
+.task-item.drag-over-task {
     outline: 2px dashed var(--color-accent);
     background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
@@ -853,11 +857,10 @@ a:hover {
   text-transform: uppercase;
   white-space: nowrap; 
 }
-/* Couleurs de priorité */
 .task-item.priority-basse { border-left-color: var(--priority-low); }
 .priority-basse { background-color: rgba(68, 175, 105, 0.15); color: var(--priority-low); }
 .task-item.priority-normale { border-left-color: var(--priority-normal); }
-.priority-normale { background-color: rgba(255, 201, 60, 0.15); color: #b38b00; }
+.priority-normale { background-color: rgba(255, 201, 60, 0.15); color: #b38b00; } /* Darker yellow for text */
 .task-item.priority-haute { border-left-color: var(--priority-high); }
 .priority-haute { background-color: rgba(255, 154, 60, 0.15); color: var(--priority-high); }
 .task-item.priority-critique { border-left-color: var(--priority-critical); }
@@ -873,7 +876,7 @@ a:hover {
   opacity: 0.8;
   padding: 2px 0;
   color: var(--color-text-secondary);
-  display: flex; /* For potential actions on subtasks later */
+  display: flex;
   justify-content: space-between;
   align-items: center;
 }
@@ -883,28 +886,30 @@ a:hover {
 }
 .task-meta {
   display: flex;
-  flex-direction: column; /* Changed to column for due date */
-  align-items: flex-start; /* Align items to start */
+  flex-direction: column;
+  align-items: flex-start;
   margin-top: var(--space-sm);
   font-size: var(--font-size-xs);
-  opacity: 0.8;
   color: var(--color-text-secondary);
 }
-.task-meta > div:first-child { /* Container for category and created date */
+.task-meta-row1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  margin-bottom: var(--space-xs); /* Space before due date */
+  margin-bottom: var(--space-xs);
 }
-
+.task-meta-row1 > div:first-child { /* Container for category and created date */
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
 .task-category {
   background-color: color-mix(in srgb, var(--color-text) 5%, transparent);
   padding: 2px var(--space-sm);
   border-radius: var(--radius-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text); /* Ensure category text is readable */
-  margin-right: var(--space-sm);
+  color: var(--color-text);
 }
 [data-color-scheme="dark"] .task-category {
   background-color: color-mix(in srgb, var(--dark-text) 10%, transparent);
@@ -912,9 +917,9 @@ a:hover {
 .task-actions {
   display: flex;
   gap: var(--space-xs);
-  margin-left: auto; /* Push actions to the right */
+  /* margin-left: auto; Pushed to end by justify-content: space-between on parent */
 }
-.task-action-btn { /* Already a .btn */
+.task-action-btn {
   padding: var(--space-xs);
   font-size: var(--font-size-sm); 
   opacity: 0.7;
@@ -931,7 +936,7 @@ a:hover {
   background-color: rgba(17, 45, 78, 0.3); 
   backdrop-filter: blur(8px); 
   -webkit-backdrop-filter: blur(8px);
-  display: none; /* Changed to none, JS will toggle to flex */
+  display: none;
   align-items: center;
   justify-content: center;
   z-index: var(--z-modal-backdrop);
@@ -945,7 +950,7 @@ a:hover {
   visibility: visible;
   transition: opacity var(--duration-normal) var(--ease-standard), visibility 0s linear;
 }
-.modal-content { /* This is the glass container */
+.modal-content {
   max-width: 600px;
   width: calc(100% - var(--space-2xl));
   max-height: 90vh;
@@ -978,14 +983,14 @@ a:hover {
 .modal-header h3 i {
   color: var(--color-primary);
 }
-.modal-close { /* Already a .btn */
+.modal-close {
   font-size: var(--font-size-xl);
   padding: var(--space-xs);
   opacity: 0.7;
 }
 .modal-close:hover {
   opacity: 1;
-  transform: rotate(90deg) scale(1.1); /* Added scale */
+  transform: rotate(90deg) scale(1.1);
 }
 .modal-body {
   padding: var(--space-lg);
@@ -996,7 +1001,7 @@ a:hover {
   padding: var(--space-md) var(--space-lg);
   border-top: 1px solid var(--color-border);
   display: flex;
-  justify-content: flex-end; /* Align buttons to the right */
+  justify-content: flex-end;
   gap: var(--space-md);
   flex-shrink: 0;
 }
@@ -1006,15 +1011,15 @@ a:hover {
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
 }
-.ai-feature-btn { /* Already a .btn */
-  display: flex; /* Keep flex for layout */
+.ai-feature-btn {
+  display: flex;
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-md);
   border: 1px solid var(--color-border);
   background-color: var(--color-surface);
   text-align: left;
-  width: 100%; /* Make buttons full width in modal */
+  width: 100%;
 }
 .ai-feature-btn:hover {
   border-color: var(--color-primary);
@@ -1029,7 +1034,7 @@ a:hover {
   width: 30px;
   text-align: center;
 }
-.ai-feature-btn div { flex-grow: 1; } /* Allow text to take space */
+.ai-feature-btn div { flex-grow: 1; }
 .ai-feature-btn strong {
   display: block;
   font-size: var(--font-size-base);
@@ -1079,7 +1084,7 @@ a:hover {
   margin-bottom: var(--space-xs);
   color: var(--color-text);
 }
-.form-control { /* General form control style for modals */
+.form-control {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
@@ -1097,7 +1102,7 @@ a:hover {
   box-shadow: 0 0 0 3px rgba(var(--aquamarine-rgb, 0, 207, 200), 0.3);
 }
 
-.reset-modal .form-control { /* Specific for reset input */
+.reset-modal .form-control {
   margin: var(--space-md) auto;
   max-width: 280px;
   text-align: center;
@@ -1120,7 +1125,7 @@ a:hover {
 
 /* Task Details Modal Specifics */
 .task-details-modal .form-group {
-    margin-bottom: var(--space-lg); /* More space between form groups */
+    margin-bottom: var(--space-lg);
 }
 .subtasks-section h4 {
     font-size: var(--font-size-md);
@@ -1136,7 +1141,7 @@ a:hover {
 }
 .details-subtask-list {
     margin-bottom: var(--space-md);
-    max-height: 150px; /* Limit height and allow scroll */
+    max-height: 150px;
     overflow-y: auto;
     padding: var(--space-sm);
     background-color: color-mix(in srgb, var(--color-surface) 95%, black 5%);
@@ -1146,7 +1151,7 @@ a:hover {
 [data-color-scheme="dark"] .details-subtask-list {
     background-color: color-mix(in srgb, var(--dark-surface) 95%, white 5%);
 }
-.details-subtask-list .subtask { /* Re-use subtask style but ensure it's specific */
+.details-subtask-list .subtask {
     font-size: var(--font-size-sm);
     padding: var(--space-xs);
     border-bottom: 1px dashed var(--color-border);
@@ -1160,7 +1165,7 @@ a:hover {
 .details-subtask-list .subtask-title {
     flex-grow: 1;
 }
-.details-subtask-list .delete-subtask-btn { /* Style for a potential delete subtask button */
+.details-subtask-list .delete-subtask-btn {
     background: none;
     border: none;
     color: var(--priority-critical);
@@ -1193,15 +1198,15 @@ a:hover {
   gap: var(--space-md);
   width: clamp(300px, 90vw, 380px);
 }
-.notification { /* This is the glass container */
+.notification {
   border-left-width: 5px;
   padding: var(--space-md) var(--space-lg);
   animation: notification-slide-in var(--duration-slow) var(--ease-standard), notification-fade-out var(--duration-slow) var(--ease-standard) forwards;
-  animation-play-state: running, paused; /* Second animation is paused initially */
+  animation-play-state: running, paused;
   position: relative;
   overflow: hidden; 
 }
-.notification.dismiss { /* Class to trigger fade out */
+.notification.dismiss {
     animation-play-state: running, running;
 }
 
@@ -1209,12 +1214,11 @@ a:hover {
   from { opacity: 0; transform: translateX(100%); }
   to { opacity: 1; transform: translateX(0); }
 }
-@keyframes notification-slide-out { /* For manual close */
+@keyframes notification-slide-out {
   from { opacity: 1; transform: translateX(0); }
   to { opacity: 0; transform: translateX(100%); }
 }
-/* Auto-dismiss fade out (if needed, currently handled by JS remove with slide-out) */
-@keyframes notification-fade-out {
+@keyframes notification-fade-out { /* Auto-dismiss fade out */
   from { opacity: 1; }
   to { opacity: 0; }
 }
@@ -1242,14 +1246,14 @@ a:hover {
   font-size: var(--font-size-sm);
   color: var(--color-text);
 }
-.notification-close { /* Already a .btn */
+.notification-close {
   position: absolute;
   top: var(--space-xs);
   right: var(--space-xs);
   padding: var(--space-xs);
-  font-size: var(--font-size-sm); /* Smaller close icon */
+  font-size: var(--font-size-sm);
 }
-.undo-btn { /* Already a .btn .btn--sm .btn--secondary */
+.undo-btn {
   margin-left: auto;
   margin-right: var(--space-sm);
 }
@@ -1286,7 +1290,7 @@ a:hover {
   background-color: rgba(17, 45, 78, 0.5); 
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
-  display: none; /* Changed by JS */
+  display: none;
   align-items: center;
   justify-content: center;
   z-index: var(--z-loading);
@@ -1300,7 +1304,7 @@ a:hover {
   visibility: visible;
   transition: opacity var(--duration-normal) var(--ease-standard), visibility 0s linear;
 }
-.loading-spinner-container { /* This is the glass container for the spinner */
+.loading-spinner-container {
   text-align: center;
   color: var(--cream); 
   padding: var(--space-lg);
@@ -1337,15 +1341,20 @@ a:hover {
   }
   .sidebar-analytics {
     width: 100%;
-    position: static; 
+    position: relative; /* Changed from static for potential future off-canvas */
     margin-bottom: var(--space-lg);
-    transform: translateX(0) !important; /* Override sticky transform */
-    opacity: 1 !important; /* Override sticky opacity */
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
     max-width: none;
-    top: auto; /* Reset sticky top */
+    top: auto;
   }
-  /* Le .sidebar-toggle est toujours dans le header de la sidebar.
-     Sa classe .collapsed-trigger le repositionnera si la sidebar est cachée. */
+  .sidebar-toggle.collapsed-trigger {
+    display: none !important; /* Le bouton flottant n'est pas utilisé sur mobile */
+  }
+   /* Le bouton de toggle normal dans .sidebar-header est toujours là, mais sa fonctionnalité
+      doit être adaptée pour mobile si on veut un vrai collapse/expand.
+      Pour l'instant, la sidebar est toujours visible sur mobile. */
 }
 
 @media (max-width: 768px) {
@@ -1354,6 +1363,9 @@ a:hover {
     flex-direction: column;
     gap: var(--space-md);
     padding: var(--space-sm);
+    /* Recalculer la hauteur du header pour mobile */
+    /* Logo (40px) + Stats (disons 40px) + Actions (40px) + 2*gaps (2*16px) + 2*padding_content (2*8px) = ~168px */
+    /* --header-total-height n'est pas directement utilisable ici car il ne s'adapte pas à la flex-direction column */
   }
   .stats-realtime {
     order: 1; 
@@ -1372,17 +1384,30 @@ a:hover {
   .add-task-form {
     flex-direction: column;
     align-items: stretch; 
+    gap: var(--space-md); /* Plus d'espace entre les inputs sur mobile */
   }
   .task-input-premium, .custom-select, .btn-add-premium {
     width: 100%;
   }
+  .task-input-premium[type="datetime-local"] {
+      flex-grow: 1;
+      min-width: 100%;
+  }
   .kanban-board { grid-template-columns: 1fr; } 
   .modal-footer {
-    flex-direction: column-reverse; /* Stack buttons on small screens */
+    flex-direction: column-reverse;
     gap: var(--space-sm);
   }
   .modal-footer .btn {
-    width: 100%; /* Make footer buttons full width */
+    width: 100%;
+  }
+  .task-meta-row1 {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .task-meta-row1 .task-actions {
+    margin-left: 0;
+    margin-top: var(--space-xs);
   }
 }
 
@@ -1397,7 +1422,7 @@ a:hover {
   .tool-btn span { font-size: calc(var(--font-size-xs) * 0.85); }
   .modal-content { width: calc(100% - var(--space-lg)); }
   .notifications-container { width: calc(100% - var(--space-md)); right: var(--space-sm); bottom: var(--space-sm); }
-  .status-bar { padding: var(--space-xs) var(--space-sm); gap: var(--space-md); font-size: var(--font-size-xs); }
+  .status-bar { padding: var(--space-xs) var(--space-sm); gap: var(--space-md); font-size: var(--font-size-xs); flex-wrap: wrap; justify-content: space-around; }
 }
 
 /* Styles pour le focus visible pour l'accessibilité */
@@ -1405,13 +1430,12 @@ a:hover {
   outline: 3px solid var(--color-accent);
   outline-offset: 2px;
   box-shadow: 0 0 0 5px rgba(var(--aquamarine-rgb, 0, 207, 200), 0.3);
-  border-radius: var(--radius-sm); /* Add radius to focus outline */
+  border-radius: var(--radius-sm);
 }
 [data-color-scheme="dark"] :focus-visible {
   outline-color: var(--wood-brown);
   box-shadow: 0 0 0 5px rgba(var(--wood-brown-rgb, 177, 122, 80), 0.3);
 }
-/* Supprimer l'outline par défaut si on utilise :focus-visible, mais le garder pour les éléments qui n'ont pas de :focus-visible (fallback) */
 *:focus:not(:focus-visible) {
   outline: none;
 }
@@ -1426,32 +1450,33 @@ a:hover {
 
 /* Input pour date d'échéance */
 .task-input-premium[type="datetime-local"] {
-  min-width: 200px; /* Ajuster selon besoin */
-  flex-basis: 200px; /* Pour aider le flex wrap */
-  flex-grow: 0.5; /* Moins gourmand que le titre */
+  min-width: 200px;
+  flex-basis: 200px;
+  flex-grow: 0.5;
 }
 
-/* Style pour le bouton de la sidebar quand elle est cachée */
-.sidebar-toggle.collapsed-trigger {
-  position: fixed;
-  left: 0; /* Collé à gauche */
-  /* Le top doit être calculé pour être sous le header et la toolbar si elle est sticky aussi */
-  /* top: calc(var(--space-lg) + HauteurDuHeader + HauteurToolbar + var(--space-md) ); */
-  /* Simplification pour l'exemple, peut nécessiter ajustement précis */
-  top: calc( (var(--space-md) * 2) + (var(--space-sm) * 2) + 40px + var(--space-lg) + var(--space-md) + 60px ); /* approx header + toolbar + padding */
-  z-index: var(--z-sticky); /* Juste en dessous du header s'il a un z-index plus élevé, sinon égal ou supérieur */
-  background-color: var(--color-primary);
-  color: var(--color-btn-primary-text);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0; /* Coins arrondis sur un côté */
-  box-shadow: var(--shadow-medium);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-primary-hover);
-  transition: transform 0.3s var(--ease-standard), background-color 0.3s var(--ease-standard);
-}
-.sidebar-toggle.collapsed-trigger:hover {
-  background-color: var(--color-primary-hover);
-  color: var(--color-btn-primary-text); /* S'assurer que la couleur du texte reste correcte */
-  transform: translateX(2px);
+/* Style pour le bouton de la sidebar quand elle est cachée (DESKTOP UNIQUEMENT) */
+@media (min-width: 1200.01px) { /* S'applique uniquement si la largeur est > 1200px */
+    .sidebar-toggle.collapsed-trigger {
+      position: fixed;
+      left: 0;
+      top: calc(var(--header-total-height) + var(--space-md)); /* Juste sous le header principal */
+      z-index: calc(var(--z-sticky) + 5);
+      background-color: var(--color-primary);
+      color: var(--color-btn-primary-text);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      box-shadow: var(--shadow-medium);
+      padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--color-primary-hover);
+      transition: transform 0.3s var(--ease-standard), background-color 0.3s var(--ease-standard), opacity 0.3s var(--ease-standard);
+      opacity: 0.85;
+    }
+    .sidebar-toggle.collapsed-trigger:hover {
+      background-color: var(--color-primary-hover);
+      color: var(--color-btn-primary-text);
+      transform: translateX(3px);
+      opacity: 1;
+    }
 }
 
 
@@ -1460,8 +1485,8 @@ a:hover {
   display: block;
   font-size: var(--font-size-xs);
   opacity: 0.7;
-  margin-top: var(--space-xs);
-  width: 100%; /* Pour qu'il prenne la largeur */
+  width: 100%;
+  color: var(--color-text-secondary);
 }
 .task-item.overdue .task-meta .task-due-date {
   color: var(--priority-critical);
@@ -1474,11 +1499,11 @@ a:hover {
   opacity: 0.9;
 }
 .task-item.overdue {
-  border-left-color: var(--priority-critical) !important; /* S'assurer que ça override les priorités */
+  border-left-color: var(--priority-critical) !important;
   animation: pulse-border-critical 1.5s infinite alternate;
 }
 .task-item.due-soon {
-  border-left-color: var(--priority-high) !important; /* S'assurer que ça override les priorités */
+  border-left-color: var(--priority-high) !important;
   animation: pulse-border-high 2s infinite alternate;
 }
 
@@ -1495,29 +1520,6 @@ a:hover {
 /* Status Bar - Clock */
 .status-bar .clock {
   font-weight: var(--font-weight-medium);
-  min-width: 70px; /* Pour éviter les sauts de layout */
+  min-width: 70px;
   text-align: center;
-}
-
-/* Responsive pour le bouton de sidebar caché */
-@media (max-width: 1200px) {
-  .sidebar-toggle.collapsed-trigger {
-    /* Le top doit être suffisant pour être sous le header ET la toolbar sur mobile */
-    /* Estimation hauteur header mobile (flexible) ~120px */
-    /* Estimation hauteur toolbar mobile ~60px */
-    /* Total ~180px + padding */
-    top: calc(120px + 60px + var(--space-lg)); /* Ajuster précisément si nécessaire */
-  }
-}
-@media (max-width: 768px) {
-    .sidebar-toggle.collapsed-trigger {
-      top: calc(160px + 60px + var(--space-md)); /* Encore plus de marge pour header plus haut */
-    }
-    .add-task-form { /* Pour que le champ date ne soit pas trop petit */
-        gap: var(--space-md);
-    }
-    .task-input-premium[type="datetime-local"] {
-        flex-grow: 1; /* Prend toute la largeur sur mobile */
-        min-width: 100%;
-    }
 }

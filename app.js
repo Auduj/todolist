@@ -25,7 +25,7 @@ class TodoListCore {
         this.currentEditingTaskId = null;
         this.clockInterval = null;
         this.dueDateCheckInterval = null;
-        this.boundToggleSidebar = null; // Pour le removeEventListener
+        this.boundToggleSidebar = null;
     }
 
     init() {
@@ -37,11 +37,11 @@ class TodoListCore {
         }
         
         this.updateAIStatus();
-        this.loadData();
+        this.loadData(); 
         this.setupEventListeners();
         this.initClock(); 
         this.startDueDateChecker(); 
-        this.updateUI();
+        this.updateUI(); 
         this.startAutoSave();
         this.setupKeyboardShortcuts();
         this.showNotification('Bienvenue dans TodoList IA (Refonte 2025 avec alertes) !', 'info');
@@ -65,13 +65,13 @@ class TodoListCore {
 
     startDueDateChecker() {
         if (this.dueDateCheckInterval) clearInterval(this.dueDateCheckInterval);
-        this.dueDateCheckInterval = setInterval(() => this.checkDueDates(), 60 * 1000); // Toutes les minutes
+        this.dueDateCheckInterval = setInterval(() => this.checkDueDates(), 60 * 1000);
         this.checkDueDates(); 
     }
 
     checkDueDates() {
         const now = new Date();
-        const alertThreshold = 15 * 60 * 1000; // 15 minutes en millisecondes
+        const alertThreshold = 15 * 60 * 1000; 
         let changed = false;
 
         this.tasks.forEach(task => {
@@ -81,15 +81,13 @@ class TodoListCore {
             if (isNaN(dueDate.getTime())) return; 
 
             const timeDiff = dueDate.getTime() - now.getTime();
-            
-            // Vérifier si une alerte a déjà été envoyée pour CETTE date d'échéance spécifique
             const alertAlreadySentForThisDueDate = task.alertSentForDueDate === task.dueDate;
 
-            if (timeDiff < 0 && !alertAlreadySentForThisDueDate) { // En retard
+            if (timeDiff < 0 && !alertAlreadySentForThisDueDate) {
                 this.showNotification(`Tâche "${this.escapeHtml(task.title)}" est en retard ! Échéance: ${this.formatDueDate(task.dueDate)}`, 'error', 10000);
                 task.alertSentForDueDate = task.dueDate; 
                 changed = true;
-            } else if (timeDiff > 0 && timeDiff <= alertThreshold && !alertAlreadySentForThisDueDate) { // Arrive à échéance bientôt
+            } else if (timeDiff > 0 && timeDiff <= alertThreshold && !alertAlreadySentForThisDueDate) {
                 this.showNotification(`Tâche "${this.escapeHtml(task.title)}" arrive à échéance bientôt (${this.formatDueDate(task.dueDate)})`, 'warning', 10000);
                 task.alertSentForDueDate = task.dueDate;
                 changed = true;
@@ -97,7 +95,7 @@ class TodoListCore {
         });
         if (changed) {
             this.saveData(); 
-            this.updateUI(); // Mettre à jour l'UI si des alertes ont été envoyées ou des états ont changé
+            this.updateUI(); 
         }
     }
     
@@ -110,7 +108,6 @@ class TodoListCore {
             hour: '2-digit', minute: '2-digit' 
         });
     }
-
 
     // === DATA MANAGEMENT ===
     loadData() {
@@ -219,7 +216,7 @@ class TodoListCore {
         this.updateProductivityScore();
         this.saveData();
         this.updateUI();
-        this.checkDueDates(); // Vérifier les alertes après déplacement
+        this.checkDueDates();
     }
 
     deleteTask(taskId, fromModal = false) {
@@ -244,7 +241,7 @@ class TodoListCore {
         } else {
             this.showUndoNotification(`Tâche "${this.escapeHtml(task.title)}" supprimée`, task, taskIndex);
         }
-        this.checkDueDates(); // Vérifier les alertes après suppression
+        this.checkDueDates();
     }
 
     restoreTask(task, index) {
@@ -256,7 +253,7 @@ class TodoListCore {
         this.saveData();
         this.updateUI();
         this.showNotification('Tâche restaurée', 'success');
-        this.checkDueDates(); // Vérifier les alertes après restauration
+        this.checkDueDates();
     }
     
     // === TASK DETAILS MODAL ===
@@ -787,11 +784,11 @@ class TodoListCore {
         if (task.dueDate && task.column !== 'done') {
             const dueDate = new Date(task.dueDate);
             const now = new Date();
-            const alertSoonThreshold = 24 * 60 * 60 * 1000; // 24 heures pour "due-soon" visuel, peut être ajusté
+            const dueSoonVisualThreshold = 2 * 24 * 60 * 60 * 1000; 
 
             if (dueDate < now) {
                 taskDiv.classList.add('overdue');
-            } else if (dueDate.getTime() - now.getTime() <= alertSoonThreshold ) {
+            } else if (dueDate.getTime() - now.getTime() <= dueSoonVisualThreshold ) {
                 taskDiv.classList.add('due-soon');
             }
         }
@@ -807,7 +804,7 @@ class TodoListCore {
         
         let dueDateHtml = '';
         if (task.dueDate) {
-            dueDateHtml = `<span class="task-due-date">Échéance: ${this.formatDueDate(task.dueDate)}</span>`;
+            dueDateHtml = `<div class="task-due-date">Échéance: ${this.formatDueDate(task.dueDate)}</div>`;
         }
 
         taskDiv.innerHTML = `
@@ -821,9 +818,11 @@ class TodoListCore {
                 </div>
             ` : ''}
             <div class="task-meta">
-                 <div> <!-- Container for category and created date -->
-                    ${task.category ? `<span class="task-category">${this.escapeHtml(task.category)}</span>` : ''}
-                    <span class="task-date">Créé: ${new Date(task.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' })}</span>
+                 <div class="task-meta-row1">
+                    <div> 
+                        ${task.category ? `<span class="task-category">${this.escapeHtml(task.category)}</span>` : ''}
+                        <span class="task-date">Créé: ${new Date(task.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' })}</span>
+                    </div>
                     <div class="task-actions">
                         <button class="task-action-btn ai-generate-btn btn" data-task-id="${task.id}" title="Générer sous-tâches IA">
                             <i class="fas fa-robot"></i>
@@ -1004,10 +1003,9 @@ class TodoListCore {
         
         const dismissNotification = () => {
             notification.classList.add('dismiss');
-            // Ensure removal even if animationend doesn't fire (e.g., if element is hidden before animation ends)
             const removeTimer = setTimeout(() => {
                  if (notification.parentNode) notification.remove();
-            }, 500); // Duration should be slightly longer than CSS animation
+            }, 500); 
 
             notification.addEventListener('animationend', () => {
                 clearTimeout(removeTimer);
@@ -1180,7 +1178,7 @@ class TodoListCore {
         Object.entries(toolButtons).forEach(([id, handler]) => {
             const btn = document.getElementById(id);
             if(btn) { 
-                if (btn.handler) btn.removeEventListener('click', btn.handler); // Remove old if exists
+                if (btn.handler) btn.removeEventListener('click', btn.handler);
                 btn.handler = (e) => { e.preventDefault(); handler(); }; 
                 btn.addEventListener('click', btn.handler);
             }
@@ -1251,7 +1249,7 @@ class TodoListCore {
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
             const activeModal = document.querySelector('.modal-overlay.active');
-            const isInputElementActive = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+            const isTextInputActive = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
             
             if (e.key === 'Escape') {
                 if (activeModal) {
@@ -1261,18 +1259,22 @@ class TodoListCore {
                     e.preventDefault();
                     this.toggleSearch(false); 
                 }
-                 // Close sidebar if open and no modal or search is active
-                else if (!document.getElementById('sidebar').classList.contains('collapsed') && window.innerWidth > 1200) { 
+                else if (window.innerWidth > 1200 && !document.getElementById('sidebar').classList.contains('collapsed')) { 
                      e.preventDefault();
                      this.toggleSidebar();
                  }
             }
             
-            if (isInputElementActive && document.activeElement.id !== 'taskInput' && document.activeElement.id !== 'searchInput' && document.activeElement.id !== 'resetConfirmInput') {
-                 if(activeModal && document.activeElement.closest('.modal-content')) return; // Allow typing in modal inputs
-                 if(!activeModal) return; // If not in modal, and not one of the main inputs, allow normal behavior
+            if (isTextInputActive && e.key !== 'Escape') {
+                if (e.key === 'Enter') {
+                    if (document.activeElement.id === 'taskInput' || 
+                        document.activeElement.id === 'taskDueDate' ||
+                        document.activeElement.id === 'detailsNewSubtaskTitle') {
+                        return;
+                    }
+                }
+                return; 
             }
-
 
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') { 
                 e.preventDefault(); 
@@ -1291,9 +1293,11 @@ class TodoListCore {
                 e.preventDefault();
                 this.startVoiceRecognition();
             }
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { // Ctrl/Cmd + B for sidebar
-                e.preventDefault();
-                this.toggleSidebar();
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+                if (window.innerWidth > 1200) {
+                    e.preventDefault();
+                    this.toggleSidebar();
+                }
             }
         });
     }
@@ -1337,7 +1341,6 @@ class TodoListCore {
     
         if (SouldBeActive) {
             modal.classList.add('active');
-            // Focus only if it's not the task details modal (which handles its own focus)
             if (modalId !== 'taskDetailsModal') {
                 const firstFocusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
                 if (firstFocusable) firstFocusable.focus(); 
@@ -1359,8 +1362,14 @@ class TodoListCore {
         const toggleBtn = document.getElementById('sidebarToggle'); 
         
         if (sidebar && toggleBtn) {
+            if (window.innerWidth <= 1200) {
+                // Sur mobile/tablette, le bouton de toggle ne fait rien car la sidebar est statique
+                // On pourrait implémenter un autre type de collapse (ex: off-canvas)
+                this.showNotification("Le panneau latéral est fixe sur les petits écrans.", "info");
+                return; 
+            }
+
             const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
-            // New state will be the opposite
             const SouldBeCollapsed = !isCurrentlyCollapsed; 
             
             const toggleIcon = toggleBtn.querySelector('i');
@@ -1383,6 +1392,18 @@ class TodoListCore {
     loadSidebarState() {
         const sidebar = document.getElementById('sidebar');
         const toggleBtn = document.getElementById('sidebarToggle');
+        
+        if (window.innerWidth <= 1200) {
+            // Assurer que la sidebar n'est pas collapsed et que le bouton flottant n'est pas appliqué
+            sidebar?.classList.remove('collapsed');
+            toggleBtn?.classList.remove('collapsed-trigger');
+            if(toggleBtn) {
+                toggleBtn.querySelector('i').className = 'fas fa-chevron-left';
+                toggleBtn.title = "Masquer la barre latérale"; // Ou désactiver
+            }
+            return;
+        }
+
         const isCollapsed = localStorage.getItem('todocore_sidebar_collapsed_2025_v3') === 'true'; 
         
         if (sidebar && toggleBtn) {
@@ -1393,14 +1414,13 @@ class TodoListCore {
                 toggleBtn.classList.add('collapsed-trigger');
                 toggleBtn.title = "Afficher la barre latérale";
             } else {
-                sidebar.classList.remove('collapsed'); // Ensure it's not collapsed by default
+                sidebar.classList.remove('collapsed'); 
                 toggleIcon.className = 'fas fa-chevron-left';
                 toggleBtn.classList.remove('collapsed-trigger');
                 toggleBtn.title = "Masquer la barre latérale";
             }
         }
     }
-
 
     toggleSearch(forceState = null) { 
         const searchSection = document.getElementById('searchSection');
@@ -1429,12 +1449,12 @@ class TodoListCore {
         document.documentElement.setAttribute('data-color-scheme', this.currentTheme);
         const themeIcon = document.querySelector('#themeToggle i');
         if (themeIcon) themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-        localStorage.setItem('todocore_theme_2025_v3', this.currentTheme); // version up
+        localStorage.setItem('todocore_theme_2025_v3', this.currentTheme);
         this.updateCompletionScoreCircle(); 
     }
     
     loadTheme() {
-        const savedTheme = localStorage.getItem('todocore_theme_2025_v3'); // version up
+        const savedTheme = localStorage.getItem('todocore_theme_2025_v3');
         const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         this.currentTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light'); 
         
@@ -1483,7 +1503,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof TodoListCore !== "undefined") {
         window.todoApp = new TodoListCore();
         window.todoApp.loadTheme(); 
-        window.todoApp.loadSidebarState(); // Charger avant init pour que le style soit correct dès le début
+        window.todoApp.loadSidebarState();
         window.todoApp.init();
     } else {
         console.error("TodoListCore is not defined. Check script loading.");

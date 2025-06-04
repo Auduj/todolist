@@ -16,7 +16,7 @@ class TodoListCore {
         
         
         // URL de votre backend déployé sur Render (ou localhost pour tests)
-        this.backendUrl = 'http://localhost:3001'; // À CHANGER AVEC VOTRE URL RENDER UNE FOIS DÉPLOYÉ
+        this.backendUrl = 'https://todolist-backend-tqcr.onrender.com'; // À CHANGER AVEC VOTRE URL RENDER UNE FOIS DÉPLOYÉ
 
         // Debounce et cache pour les performances
         this.saveDebounceTimer = null;

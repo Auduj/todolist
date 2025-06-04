@@ -1,5 +1,6 @@
 // TodoList IA Core - Application simplifiée et focalisée
 // Refonte UI/UX 2025 - Ajout de la modale de détails de tâche
+// URL Backend Render adaptée
 
 class TodoListCore {
     constructor() {
@@ -16,26 +17,26 @@ class TodoListCore {
             productivityScore: 0
         };
         
+        // Utilisation directe de l'URL Render fournie
         this.backendUrl = 'https://todolist-backend-tqcr.onrender.com'; 
 
         this.saveDebounceTimer = null;
         this.searchDebounceTimer = null;
         this.aiCache = new Map();
         this.cacheExpiry = 5 * 60 * 1000; 
-        this.currentEditingTaskId = null; // To keep track of the task being edited in the modal
+        this.currentEditingTaskId = null; 
     }
 
     init() {
         console.log('Initialisation de TodoList IA Core (Refonte 2025 avec modale détails)...');
         
-        const deployedBackendUrl = 'https://todolist-backend-tqcr.onrender.com';
+        // this.backendUrl est maintenant défini dans le constructeur.
+        console.log(`Backend URL is: ${this.backendUrl}`);
 
-        if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-            if (deployedBackendUrl === 'https://todolist-backend-tqcr.onrender.com' || !deployedBackendUrl.startsWith('https://')) {
-                console.warn("URL du backend potentiellement non configurée pour le déploiement ! Les fonctionnalités IA pourraient ne pas fonctionner.");
-                this.showNotification("Backend non configuré ou URL invalide. Fonctions IA indisponibles.", "error", 0);
-            }
-            this.backendUrl = deployedBackendUrl; 
+        // Vérification simplifiée pour le placeholder ou format d'URL invalide.
+        if (this.backendUrl === 'https://VOTRE_APP_RENDER.onrender.com' || !this.backendUrl.startsWith('https://')) {
+            console.warn("URL du backend potentiellement non configurée ! Les fonctionnalités IA pourraient ne pas fonctionner.");
+            this.showNotification("Backend non configuré ou URL invalide. Fonctions IA indisponibles.", "error", 0);
         }
         
         this.updateAIStatus();
@@ -50,7 +51,7 @@ class TodoListCore {
     // === DATA MANAGEMENT ===
     loadData() {
         try {
-            const savedTasks = localStorage.getItem('todocore_tasks_2025_v2'); // New key for this version
+            const savedTasks = localStorage.getItem('todocore_tasks_2025_v2'); 
             const savedMetrics = localStorage.getItem('todocore_metrics_2025_v2');
             
             if (savedTasks) {
@@ -99,11 +100,11 @@ class TodoListCore {
             id: this.generateId(),
             title: title.trim(),
             category,
-            priority: priority || 'Normale', // Default priority if not set
+            priority: priority || 'Normale', 
             column,
             createdAt: new Date().toISOString(),
             completedAt: null,
-            subtasks: [], // Initialize with empty array
+            subtasks: [], 
             aiGenerated: false
         };
 
@@ -116,7 +117,7 @@ class TodoListCore {
             }
         }
 
-        if (!priority) { // If priority is still empty after default
+        if (!priority) { 
             task.priority = this.suggestPriority(title);
         }
 
@@ -207,14 +208,14 @@ class TodoListCore {
 
     renderSubtasksInModal(subtasks) {
         const subtaskListEl = document.getElementById('detailsSubtaskList');
-        subtaskListEl.innerHTML = ''; // Clear previous subtasks
+        subtaskListEl.innerHTML = ''; 
         if (subtasks.length === 0) {
             subtaskListEl.innerHTML = '<p class="empty-column-text">Aucune sous-tâche.</p>';
             return;
         }
         subtasks.forEach((subtaskText, index) => {
             const subtaskEl = document.createElement('div');
-            subtaskEl.className = 'subtask'; // Use existing .subtask class for styling
+            subtaskEl.className = 'subtask'; 
             subtaskEl.innerHTML = `
                 <span class="subtask-title">${this.escapeHtml(subtaskText)}</span>
                 <button class="delete-subtask-btn btn btn--danger btn--sm" data-index="${index}" title="Supprimer sous-tâche">
@@ -245,8 +246,7 @@ class TodoListCore {
         task.title = newTitle;
         task.category = newCategory;
         task.priority = newPriority;
-        // Subtasks are handled separately by handleAddSubtaskFromModal and handleDeleteSubtaskFromModal
-
+        
         this.saveData();
         this.updateUI();
         this.toggleModal('taskDetailsModal', false);
@@ -270,10 +270,10 @@ class TodoListCore {
         if (!task.subtasks) task.subtasks = [];
         task.subtasks.push(subtaskTitle);
         
-        this.saveData(); // Save data after adding subtask
-        this.renderSubtasksInModal(task.subtasks); // Re-render subtasks in modal
-        this.updateUI(); // Update main UI if subtasks are shown there
-        subtaskTitleInput.value = ''; // Clear input
+        this.saveData(); 
+        this.renderSubtasksInModal(task.subtasks); 
+        this.updateUI(); 
+        subtaskTitleInput.value = ''; 
         subtaskTitleInput.focus();
         this.showNotification("Sous-tâche ajoutée.", "success");
     }
@@ -294,10 +294,9 @@ class TodoListCore {
 
     // === ARTIFICIAL INTELLIGENCE (via Backend) ===
     isBackendConfigured() {
-        // Check if backendUrl is not the placeholder and not the default localhost used for local dev only
         const isPlaceholder = this.backendUrl === 'https://VOTRE_APP_RENDER.onrender.com';
-        const isDefaultLocal = this.backendUrl === 'http://localhost:3001' && (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1");
-        return this.backendUrl && this.backendUrl.startsWith('http') && !isPlaceholder && !isDefaultLocal;
+        // Vérifie simplement si c'est une URL HTTPS valide et non le placeholder.
+        return this.backendUrl && this.backendUrl.startsWith('https://') && !isPlaceholder;
     }
     
     updateAIStatus() {
@@ -369,7 +368,7 @@ class TodoListCore {
 
         if (aiResponse && aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
             const content = aiResponse.choices[0].message.content.trim();
-            const subtasks = content.split('\n').map(s => s.replace(/^- /,'').trim()).filter(line => line.trim()).slice(0, 5); // Max 5 subtasks
+            const subtasks = content.split('\n').map(s => s.replace(/^- /,'').trim()).filter(line => line.trim()).slice(0, 5); 
             if (subtasks.length > 0) {
                 this.showNotification(`${subtasks.length} sous-tâches générées par l'IA`, 'success');
             } else {
@@ -619,7 +618,7 @@ class TodoListCore {
         });
     }
     
-    createSubtask(sourceTaskId, targetTaskId) { // Added for drag-drop subtask creation
+    createSubtask(sourceTaskId, targetTaskId) { 
         const sourceTask = this.tasks.find(t => t.id === sourceTaskId);
         const targetTask = this.tasks.find(t => t.id === targetTaskId);
         
@@ -627,12 +626,10 @@ class TodoListCore {
 
         if (!targetTask.subtasks) targetTask.subtasks = [];
         
-        // Avoid adding duplicate subtask by title if it's just a move of an existing task
         if (!targetTask.subtasks.includes(sourceTask.title)) {
             targetTask.subtasks.push(sourceTask.title);
         }
         
-        // Remove the source task as it's now a subtask
         const sourceIndex = this.tasks.findIndex(t => t.id === sourceTaskId);
         if (sourceIndex > -1) {
             this.tasks.splice(sourceIndex, 1);

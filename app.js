@@ -14,9 +14,8 @@ class TodoListCore {
             productivityScore: 0
         };
         
-        
         // URL de votre backend déployé sur Render (ou localhost pour tests)
-        this.backendUrl = 'https://todolist-backend-tqcr.onrender.com'; // À CHANGER AVEC VOTRE URL RENDER UNE FOIS DÉPLOYÉ
+        this.backendUrl = 'http://localhost:3001'; // Sera écrasée par la logique dans init() si déployé
 
         // Debounce et cache pour les performances
         this.saveDebounceTimer = null;
@@ -27,11 +26,15 @@ class TodoListCore {
 
     init() {
         console.log('Initialisation de TodoList IA Core...');
-        // Déterminez l'URL du backend. Si l'application est déployée (pas localhost pour le frontend),
-        // utilisez l'URL de Render. Sinon, pour le développement local, utilisez localhost pour le backend.
+        
+        const deployedBackendUrl = 'https://todolist-backend-tqcr.onrender.com'; // URL RENDER MISE À JOUR
+
         if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-            // Remplacez 'VOTRE_APP_RENDER.onrender.com' par le nom de votre service sur Render
-            this.backendUrl = 'https://VOTRE_APP_RENDER.onrender.com'; 
+            if (deployedBackendUrl === 'https://VOTRE_APP_RENDER.onrender.com' || !deployedBackendUrl.startsWith('https://')) { // Vérification plus générique
+                console.warn("URL du backend potentiellement non configurée pour le déploiement ! Les fonctionnalités IA pourraient ne pas fonctionner.");
+                this.showNotification("Backend non configuré ou URL invalide. Fonctions IA indisponibles.", "error", 0); // Notification persistante
+            }
+            this.backendUrl = deployedBackendUrl; 
             console.log(`Backend URL set to: ${this.backendUrl} (for deployed frontend)`);
         } else {
             console.log(`Backend URL set to: ${this.backendUrl} (for local development)`);
@@ -85,7 +88,7 @@ class TodoListCore {
     startAutoSave() {
         setInterval(() => {
             this.saveData();
-        }, 30000); // Sauvegarde automatique toutes les 30 secondes
+        }, 30000); 
     }
 
     // === GESTION DES TÂCHES ===
@@ -94,8 +97,6 @@ class TodoListCore {
             this.showNotification('Veuillez saisir une tâche', 'warning');
             return;
         }
-
-        console.log('Ajout d\'une nouvelle tâche:', title);
 
         const task = {
             id: this.generateId(),
@@ -109,33 +110,30 @@ class TodoListCore {
             aiGenerated: false
         };
 
-        // Catégorisation automatique avec IA si pas de catégorie
-        if (!category) {
-            const suggestedCategory = await this.categorizeTaskWithAI(title); // Changé le nom de la fonction pour clarté
+        // Ne pas appeler l'IA si l'URL du backend est le placeholder ou invalide
+        const backendIsConfigured = this.backendUrl && this.backendUrl.startsWith('https') && this.backendUrl !== 'https://VOTRE_APP_RENDER.onrender.com';
+
+        if (!category && backendIsConfigured) {
+            const suggestedCategory = await this.categorizeTaskWithAI(title); 
             if (suggestedCategory && this.categories.includes(suggestedCategory)) {
                 task.category = suggestedCategory;
                 console.log('Catégorie suggérée par IA:', suggestedCategory);
             }
         }
 
-        // Suggestion de priorité si pas de priorité
         if (!priority) {
             task.priority = this.suggestPriority(title);
-            console.log('Priorité suggérée:', task.priority);
         }
 
         this.tasks.push(task);
         this.metrics.totalTasks++;
         
-        if (column === 'done') {
-            this.metrics.completedToday++;
-        }
+        if (column === 'done') this.metrics.completedToday++;
         
         this.updateProductivityScore();
         this.saveData();
         this.updateUI();
-        this.showNotification(`Tâche "${title}" ajoutée avec succès`, 'success');
-        
+        this.showNotification(`Tâche "${this.escapeHtml(title)}" ajoutée`, 'success');
         return task;
     }
 
@@ -149,7 +147,7 @@ class TodoListCore {
         if (newColumn === 'done' && oldColumn !== 'done') {
             task.completedAt = new Date().toISOString();
             this.metrics.completedToday++;
-            this.showNotification(`Tâche "${task.title}" terminée !`, 'success');
+            this.showNotification(`Tâche "${this.escapeHtml(task.title)}" terminée !`, 'success');
         } else if (oldColumn === 'done' && newColumn !== 'done') {
             task.completedAt = null;
             this.metrics.completedToday = Math.max(0, this.metrics.completedToday - 1);
@@ -175,16 +173,14 @@ class TodoListCore {
         this.updateProductivityScore();
         this.saveData();
         this.updateUI();
-        
-        this.showUndoNotification(`Tâche "${task.title}" supprimée`, task, taskIndex);
+        this.showUndoNotification(`Tâche "${this.escapeHtml(task.title)}" supprimée`, task, taskIndex);
     }
 
     restoreTask(task, index) {
         this.tasks.splice(index, 0, task);
         this.metrics.totalTasks++;
-        if (task.column === 'done') {
-            this.metrics.completedToday++;
-        }
+        if (task.column === 'done') this.metrics.completedToday++;
+        
         this.updateProductivityScore();
         this.saveData();
         this.updateUI();
@@ -208,11 +204,9 @@ class TodoListCore {
         const sourceTask = this.tasks.find(t => t.id === sourceTaskId);
         const targetTask = this.tasks.find(t => t.id === targetTaskId);
         
-        if (!sourceTask || !targetTask || sourceTask.id === targetTask.id) return;
+        if (!sourceTask || !targetTask || sourceTask.id === targetTaskId) return;
 
-        if (!targetTask.subtasks) {
-            targetTask.subtasks = [];
-        }
+        if (!targetTask.subtasks) targetTask.subtasks = [];
         
         targetTask.subtasks.push(sourceTask.title);
         
@@ -222,110 +216,99 @@ class TodoListCore {
 
         this.saveData();
         this.updateUI();
-        this.showNotification(`Sous-tâche créée dans "${targetTask.title}"`, 'success');
+        this.showNotification(`Sous-tâche créée dans "${this.escapeHtml(targetTask.title)}"`, 'success');
     }
 
     // === INTELLIGENCE ARTIFICIELLE (via Backend) ===
-    async generateSubtasksWithAI(taskTitle) { // Changé le nom de la fonction pour clarté
-        if (!taskTitle.trim()) return [];
+    async _callAIBackend(type, promptText) {
+        const backendIsConfigured = this.backendUrl && this.backendUrl.startsWith('https') && this.backendUrl !== 'https://VOTRE_APP_RENDER.onrender.com';
+        if (!backendIsConfigured) {
+             this.showNotification("L'URL du backend n'est pas correctement configurée. Fonctions IA indisponibles.", "error", 0);
+             return null;
+        }
 
-        const cacheKey = `subtasks_${taskTitle}`;
+        const cacheKey = `${type}_${promptText}`;
         const cached = this.getCachedAIResponse(cacheKey);
         if (cached) return cached;
 
         this.showLoading(true);
+        let responseData = null;
         
         try {
-            // Appel au backend
             const response = await fetch(`${this.backendUrl}/api/openai`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    type: 'generateSubtasks',
-                    prompt: taskTitle 
-                    // model, max_tokens, temperature peuvent être ajoutés ici si besoin
-                    // ou gérés par défaut par le backend
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, prompt: promptText })
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                console.error('Backend API Error for subtasks:', errorData);
-                throw new Error(`Erreur API Backend: ${response.status} - ${errorData.error || 'Unknown error'}`);
+                let errorDetails = 'Erreur inconnue du serveur.';
+                try {
+                    const errorData = await response.json();
+                    errorDetails = errorData.error || (errorData.details ? JSON.stringify(errorData.details) : errorDetails);
+                } catch (e) {
+                    errorDetails = `Statut ${response.status}: ${response.statusText}`;
+                }
+                console.error(`Backend API Error for ${type}:`, errorDetails);
+                throw new Error(`Erreur API Backend (${type}): ${errorDetails}`);
             }
+            
+            responseData = await response.json();
+            this.setCachedAIResponse(cacheKey, responseData);
+            return responseData;
 
-            const data = await response.json(); // Réponse directe de l'API OpenAI via le backend
-            const content = data.choices[0].message.content.trim();
-            const subtasks = content.split('\n').filter(line => line.trim()).slice(0, 5);
-            
-            this.setCachedAIResponse(cacheKey, subtasks);
-            this.showNotification(`${subtasks.length} sous-tâches générées avec l'IA`, 'success');
-            
-            return subtasks;
         } catch (error) {
-            console.error('Erreur IA (via backend) pour subtasks:', error);
-            this.showNotification(`Erreur lors de la génération IA : ${error.message}`, 'error');
-            return [];
+            console.error(`Erreur IA (via backend) pour ${type}:`, error);
+            if (error.message.toLowerCase().includes('failed to fetch')) {
+                this.showNotification(
+                    `Impossible de joindre le serveur IA (${this.backendUrl}). Vérifiez votre connexion ou l'URL du backend.`, 
+                    'error', 
+                    10000 
+                );
+            } else {
+                this.showNotification(`Erreur IA (${type}): ${error.message}`, 'error');
+            }
+            return null;
         } finally {
             this.showLoading(false);
         }
     }
 
-    async categorizeTaskWithAI(taskTitle) { // Changé le nom de la fonction pour clarté
-        const cacheKey = `category_${taskTitle}`;
-        const cached = this.getCachedAIResponse(cacheKey);
-        if (cached) return cached;
+    async generateSubtasksWithAI(taskTitle) {
+        if (!taskTitle.trim()) return [];
+        const aiResponse = await this._callAIBackend('generateSubtasks', taskTitle);
 
-        this.showLoading(true); // Optionnel, peut être rapide
-
-        try {
-            // Appel au backend
-            const response = await fetch(`${this.backendUrl}/api/openai`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    type: 'categorizeTask',
-                    prompt: taskTitle
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const category = data.choices[0].message.content.trim();
-                this.setCachedAIResponse(cacheKey, category);
-                this.showLoading(false);
-                return category;
-            } else {
-                const errorData = await response.json();
-                console.error('Backend API Error for categorization:', errorData);
-                throw new Error(`Erreur API Backend: ${response.status} - ${errorData.error || 'Unknown error'}`);
-            }
-        } catch (error) {
-            console.error('Erreur catégorisation IA (via backend):', error);
-            this.showNotification(`Erreur de catégorisation IA : ${error.message}`, 'error');
-        } finally {
-            this.showLoading(false);
+        if (aiResponse && aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
+            const content = aiResponse.choices[0].message.content.trim();
+            const subtasks = content.split('\n').filter(line => line.trim()).slice(0, 5);
+            this.showNotification(`${subtasks.length} sous-tâches générées`, 'success');
+            return subtasks;
         }
-        
+        return [];
+    }
+
+    async categorizeTaskWithAI(taskTitle) {
+        if (!taskTitle.trim()) return '';
+        const aiResponse = await this._callAIBackend('categorizeTask', taskTitle);
+
+        if (aiResponse && aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
+            const category = aiResponse.choices[0].message.content.trim();
+            return category;
+        }
         return '';
     }
 
+
     suggestPriority(taskTitle) {
-        const urgentKeywords = ['urgent', 'immédiat', 'critique', 'important', 'deadline', 'échéance'];
-        const lowKeywords = ['quand possible', 'plus tard', 'éventuellement', 'si temps'];
+        const urgentKeywords = ['urgent', 'immédiat', 'critique', 'important', 'deadline', 'échéance', 'tout de suite', 'asap'];
+        const highKeywords = ['vite', 'bientôt', 'prioritaire'];
+        const lowKeywords = ['quand possible', 'plus tard', 'éventuellement', 'si temps', 'un jour'];
         
         const titleLower = taskTitle.toLowerCase();
         
-        if (urgentKeywords.some(keyword => titleLower.includes(keyword))) {
-            return 'Critique';
-        }
-        if (lowKeywords.some(keyword => titleLower.includes(keyword))) {
-            return 'Basse';
-        }
+        if (urgentKeywords.some(keyword => titleLower.includes(keyword))) return 'Critique';
+        if (highKeywords.some(keyword => titleLower.includes(keyword))) return 'Haute';
+        if (lowKeywords.some(keyword => titleLower.includes(keyword))) return 'Basse';
         
         return 'Normale';
     }
@@ -335,14 +318,12 @@ class TodoListCore {
         if (cached && Date.now() - cached.timestamp < this.cacheExpiry) {
             return cached.data;
         }
+        this.aiCache.delete(key); 
         return null;
     }
 
     setCachedAIResponse(key, data) {
-        this.aiCache.set(key, {
-            data,
-            timestamp: Date.now()
-        });
+        this.aiCache.set(key, { data, timestamp: Date.now() });
     }
 
     // === DICTÉE VOCALE ===
@@ -377,23 +358,28 @@ class TodoListCore {
         this.recognition.onerror = (event) => {
             this.isVoiceRecording = false;
             this.updateVoiceButton();
-            this.showNotification('Erreur de reconnaissance vocale', 'error');
+            let errorMessage = 'Erreur de reconnaissance vocale';
+            if (event.error === 'no-speech') errorMessage = 'Aucune parole détectée.';
+            else if (event.error === 'audio-capture') errorMessage = 'Problème de capture audio.';
+            else if (event.error === 'not-allowed') errorMessage = 'Accès au micro refusé.';
+            this.showNotification(errorMessage, 'error');
         };
-
         return true;
     }
 
     startVoiceRecognition() {
-        if (!this.recognition && !this.initVoiceRecognition()) {
-            return;
-        }
-
+        if (!this.recognition && !this.initVoiceRecognition()) return;
         if (this.isVoiceRecording) {
             this.recognition.stop();
             return;
         }
-
-        this.recognition.start();
+        try {
+            this.recognition.start();
+        } catch (e) {
+            this.isVoiceRecording = false;
+            this.updateVoiceButton();
+            this.showNotification('Impossible de démarrer la reconnaissance vocale.', 'error');
+        }
     }
 
     processVoiceCommand(transcript) {
@@ -401,9 +387,7 @@ class TodoListCore {
         
         if (command.includes('ajouter tâche') || command.includes('nouvelle tâche')) {
             const taskTitle = transcript.replace(/ajouter tâche|nouvelle tâche/gi, '').trim();
-            if (taskTitle) {
-                this.addTask(taskTitle);
-            }
+            if (taskTitle) this.addTask(taskTitle);
         } else if (command.includes('réinitialiser')) {
             this.showResetModal();
         } else {
@@ -413,13 +397,7 @@ class TodoListCore {
 
     updateVoiceButton() {
         const voiceBtn = document.getElementById('voiceBtn');
-        if (voiceBtn) {
-            if (this.isVoiceRecording) {
-                voiceBtn.classList.add('recording');
-            } else {
-                voiceBtn.classList.remove('recording');
-            }
-        }
+        if (voiceBtn) voiceBtn.classList.toggle('recording', this.isVoiceRecording);
     }
 
     // === RECHERCHE ET FILTRAGE ===
@@ -430,7 +408,6 @@ class TodoListCore {
 
     filterTasks(tasks) {
         if (!this.searchTerm) return tasks;
-        
         return tasks.filter(task => 
             task.title.toLowerCase().includes(this.searchTerm) ||
             (task.category && task.category.toLowerCase().includes(this.searchTerm)) ||
@@ -441,70 +418,81 @@ class TodoListCore {
     // === DRAG & DROP ===
     setupDragAndDrop() {
         let draggedTaskId = null;
-        let dragTargetTaskId = null;
-
+    
         document.addEventListener('dragstart', (e) => {
             if (e.target.classList.contains('task-item')) {
                 draggedTaskId = e.target.dataset.taskId;
                 e.target.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', draggedTaskId); 
             }
         });
-
+    
         document.addEventListener('dragend', (e) => {
             if (e.target.classList.contains('task-item')) {
                 e.target.classList.remove('dragging');
-                draggedTaskId = null;
-                dragTargetTaskId = null;
             }
-        });
+            draggedTaskId = null; 
+            document.querySelectorAll('.tasks-list.drag-over').forEach(list => list.classList.remove('drag-over'));
+            document.querySelectorAll('.task-item.drag-over-task').forEach(taskEl => taskEl.classList.remove('drag-over-task'));
 
+        });
+    
         document.querySelectorAll('.tasks-list').forEach(list => {
             list.addEventListener('dragover', (e) => {
-                e.preventDefault();
+                e.preventDefault(); 
                 e.dataTransfer.dropEffect = 'move';
-                list.classList.add('drag-over');
+                list.classList.add('drag-over'); 
+                document.querySelectorAll('.task-item.drag-over-task').forEach(taskEl => taskEl.classList.remove('drag-over-task'));
             });
-
+    
             list.addEventListener('dragleave', (e) => {
-                if (!list.contains(e.relatedTarget)) {
+                if (!list.contains(e.relatedTarget) || e.relatedTarget === null) {
                     list.classList.remove('drag-over');
                 }
             });
-
+    
             list.addEventListener('drop', (e) => {
                 e.preventDefault();
                 list.classList.remove('drag-over');
-                
-                const newColumn = list.parentElement.dataset.column;
+                const newColumn = list.closest('.column-container')?.dataset.column; 
                 
                 if (draggedTaskId && newColumn) {
-                    this.moveTask(draggedTaskId, newColumn);
+                    const droppedOnTask = e.target.closest('.task-item');
+                    if (!droppedOnTask) {
+                        this.moveTask(draggedTaskId, newColumn);
+                    }
                 }
             });
         });
-
+    
         document.addEventListener('dragover', (e) => {
-            if (e.target.closest('.task-item')) {
-                e.preventDefault();
-                const taskElement = e.target.closest('.task-item');
-                dragTargetTaskId = taskElement.dataset.taskId;
+            const taskElement = e.target.closest('.task-item');
+            if (taskElement && taskElement.dataset.taskId !== draggedTaskId) {
+                e.preventDefault(); 
+                e.dataTransfer.dropEffect = 'link'; 
+                taskElement.classList.add('drag-over-task');
+                taskElement.closest('.tasks-list')?.classList.remove('drag-over');
             }
         });
-
+         document.addEventListener('dragleave', (e) => {
+            const taskElement = e.target.closest('.task-item');
+            if (taskElement) {
+                 if (!taskElement.contains(e.relatedTarget) || e.relatedTarget === null) {
+                    taskElement.classList.remove('drag-over-task');
+                }
+            }
+        });
+    
         document.addEventListener('drop', (e) => {
-            if (e.target.closest('.task-item') && draggedTaskId && dragTargetTaskId) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (draggedTaskId !== dragTargetTaskId) {
-                    // Pour simplifier, on ne demande plus de confirmation pour la création de sous-tâche par drag-drop
-                    // Si vous voulez la remettre :
-                    // const confirmed = confirm('Voulez-vous créer une sous-tâche ?');
-                    // if (confirmed) {
-                    //     this.createSubtask(draggedTaskId, dragTargetTaskId);
-                    // }
-                    this.createSubtask(draggedTaskId, dragTargetTaskId);
+            const targetTaskElement = e.target.closest('.task-item');
+            if (targetTaskElement) {
+                targetTaskElement.classList.remove('drag-over-task');
+                const targetTaskId = targetTaskElement.dataset.taskId;
+                if (draggedTaskId && targetTaskId && draggedTaskId !== targetTaskId) {
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    this.createSubtask(draggedTaskId, targetTaskId);
                 }
             }
         });
@@ -512,59 +500,64 @@ class TodoListCore {
 
     // === GESTION DES MÉTRIQUES ===
     updateProductivityScore() {
-        if (this.metrics.totalTasks === 0) {
-            this.metrics.productivityScore = 0;
-            return;
-        }
+        const activeTasks = this.tasks.filter(t => t.column !== 'done').length;
+        const completedTasks = this.tasks.filter(t => t.column === 'done').length;
+        const totalConsideredTasks = activeTasks + completedTasks;
 
-        const completionRate = (this.metrics.completedToday / this.metrics.totalTasks) * 100;
-        this.metrics.productivityScore = Math.min(100, Math.round(completionRate));
+        if (totalConsideredTasks === 0) {
+            this.metrics.productivityScore = 0;
+        } else {
+            this.metrics.productivityScore = Math.min(100, Math.round((completedTasks / totalConsideredTasks) * 100));
+        }
+        this.metrics.totalTasks = this.tasks.length; 
+        this.metrics.completedToday = this.tasks.filter(t => t.column === 'done' && t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length;
     }
 
     // === INTERFACE UTILISATEUR ===
     updateUI() {
+        this.updateProductivityScore(); 
         this.updateStats();
         this.updateTaskLists();
         this.updateCounters();
         this.updateCategoryStats();
-        this.updateCompletionScore();
+        this.updateCompletionScoreCircle(); 
     }
 
     updateStats() {
-        const elements = {
-            totalTasks: document.getElementById('totalTasks'),
-            completedToday: document.getElementById('completedToday'),
-            productivityScore: document.getElementById('productivityScore')
-        };
-
-        if (elements.totalTasks) elements.totalTasks.textContent = this.metrics.totalTasks;
-        if (elements.completedToday) elements.completedToday.textContent = this.metrics.completedToday;
-        if (elements.productivityScore) elements.productivityScore.textContent = `${this.metrics.productivityScore}%`;
+        document.getElementById('totalTasks').textContent = this.metrics.totalTasks;
+        document.getElementById('completedToday').textContent = this.metrics.completedToday;
+        document.getElementById('productivityScore').textContent = `${this.metrics.productivityScore}%`;
     }
 
     updateTaskLists() {
         this.columns.forEach(column => {
-            const list = document.getElementById(`${column}List`);
-            if (!list) return;
+            const listEl = document.getElementById(`${column}List`);
+            if (!listEl) return;
 
-            let tasks = this.tasks.filter(task => task.column === column);
-            tasks = this.filterTasks(tasks);
-            list.innerHTML = '';
+            let columnTasks = this.tasks.filter(task => task.column === column);
+            columnTasks = this.filterTasks(columnTasks); 
+            listEl.innerHTML = ''; 
 
-            tasks.forEach(task => {
-                const taskElement = this.createTaskElement(task);
-                list.appendChild(taskElement);
-            });
+            if (columnTasks.length === 0 && this.searchTerm) {
+                listEl.innerHTML = `<p class="empty-column-text">Aucune tâche ne correspond à "${this.escapeHtml(this.searchTerm)}" dans cette colonne.</p>`;
+            } else if (columnTasks.length === 0) {
+                 listEl.innerHTML = `<p class="empty-column-text">Aucune tâche ici.</p>`;
+            } else {
+                columnTasks.forEach(task => listEl.appendChild(this.createTaskElement(task)));
+            }
         });
     }
 
     createTaskElement(task) {
         const taskDiv = document.createElement('div');
         taskDiv.className = 'task-item';
+        if (task.priority) { 
+            taskDiv.classList.add(`priority-${task.priority.toLowerCase().replace(' ', '')}`);
+        }
         taskDiv.draggable = true;
         taskDiv.dataset.taskId = task.id;
 
-        const priorityClass = task.priority ? `priority-${task.priority.toLowerCase().replace(' ', '')}` : ''; // Gère "Normale" -> "normale"
+        const priorityClass = task.priority ? `priority-${task.priority.toLowerCase().replace(' ', '')}` : '';
         
         taskDiv.innerHTML = `
             <div class="task-header">
@@ -573,83 +566,93 @@ class TodoListCore {
             </div>
             ${task.subtasks && task.subtasks.length > 0 ? `
                 <div class="task-subtasks">
-                    ${task.subtasks.map(subtask => `<div class="subtask">• ${this.escapeHtml(subtask)}</div>`).join('')}
+                    ${task.subtasks.map(subtask => `<div class="subtask">${this.escapeHtml(subtask)}</div>`).join('')}
                 </div>
             ` : ''}
             <div class="task-meta">
                 <div>
                     ${task.category ? `<span class="task-category">${task.category}</span>` : ''}
+                    <span class="task-date">Créé le: ${new Date(task.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' })}</span>
                 </div>
                 <div class="task-actions">
-                    <button class="task-action-btn ai-generate-btn" onclick="todoApp.generateSubtasksForTask('${task.id}')" title="Générer sous-tâches IA">
+                    <button class="task-action-btn ai-generate-btn" data-task-id="${task.id}" title="Générer sous-tâches IA">
                         <i class="fas fa-robot"></i>
                     </button>
-                    <button class="task-action-btn" onclick="todoApp.editTask('${task.id}')" title="Modifier">
+                    <button class="task-action-btn edit-btn" data-task-id="${task.id}" title="Modifier">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="task-action-btn" onclick="todoApp.deleteTask('${task.id}')" title="Supprimer">
+                    <button class="task-action-btn delete-btn" data-task-id="${task.id}" title="Supprimer">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
         `;
+        taskDiv.querySelector('.ai-generate-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); this.generateSubtasksForTask(task.id);
+        });
+        taskDiv.querySelector('.edit-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); this.editTask(task.id);
+        });
+        taskDiv.querySelector('.delete-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); this.deleteTask(task.id);
+        });
 
         return taskDiv;
     }
 
     updateCounters() {
         this.columns.forEach(column => {
-            const counter = document.getElementById(`${column}Counter`);
-            if (counter) {
-                let tasks = this.tasks.filter(task => task.column === column);
-                tasks = this.filterTasks(tasks);
-                counter.textContent = tasks.length;
+            const counterEl = document.getElementById(`${column}Counter`);
+            if (counterEl) {
+                const columnTasks = this.tasks.filter(task => task.column === column);
+                counterEl.textContent = columnTasks.length;
             }
         });
 
-        const todoCount = document.getElementById('todoCount');
-        const inProgressCount = document.getElementById('inProgressCount');
-        const doneCount = document.getElementById('doneCount');
-
-        if (todoCount) todoCount.textContent = this.tasks.filter(t => t.column === 'todo').length;
-        if (inProgressCount) inProgressCount.textContent = this.tasks.filter(t => t.column === 'inprogress').length;
-        if (doneCount) doneCount.textContent = this.tasks.filter(t => t.column === 'done').length;
+        document.getElementById('todoCount').textContent = this.tasks.filter(t => t.column === 'todo').length;
+        document.getElementById('inProgressCount').textContent = this.tasks.filter(t => t.column === 'inprogress').length;
+        document.getElementById('doneCount').textContent = this.tasks.filter(t => t.column === 'done').length;
     }
 
     updateCategoryStats() {
         const container = document.getElementById('categoryStats');
         if (!container) return;
 
-        const categoryCount = {};
-        this.categories.forEach(cat => categoryCount[cat] = 0);
-        
+        const categoryCount = this.categories.reduce((acc, cat) => ({ ...acc, [cat]: 0 }), {});
         this.tasks.forEach(task => {
             if (task.category && categoryCount.hasOwnProperty(task.category)) {
                 categoryCount[task.category]++;
             }
         });
 
-        container.innerHTML = '';
-        Object.entries(categoryCount).forEach(([category, count]) => {
-            const item = document.createElement('div');
-            item.className = 'category-item';
-            item.innerHTML = `
-                <span>${category}</span>
-                <span class="category-count">${count}</span>
-            `;
-            container.appendChild(item);
-        });
+        container.innerHTML = ''; 
+        const sortedCategories = Object.entries(categoryCount)
+            .filter(([_, count]) => count > 0) 
+            .sort(([, countA], [, countB]) => countB - countA); 
+
+        if (sortedCategories.length === 0) {
+            container.innerHTML = '<p class="empty-column-text">Aucune tâche catégorisée.</p>';
+        } else {
+            sortedCategories.forEach(([category, count]) => {
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.innerHTML = `
+                    <span>${this.escapeHtml(category)}</span>
+                    <span class="category-count">${count}</span>
+                `;
+                container.appendChild(item);
+            });
+        }
     }
 
-    updateCompletionScore() {
+    updateCompletionScoreCircle() {
         const circle = document.getElementById('completionCircle');
         const scoreElement = document.getElementById('completionScore');
         
         if (circle && scoreElement) {
             const score = this.metrics.productivityScore;
             scoreElement.textContent = `${score}%`;
-            const gradient = `conic-gradient(var(--gradient-primary) ${score}%, rgba(255, 255, 255, 0.1) 0)`;
-            circle.style.background = gradient;
+            circle.style.background = `conic-gradient(var(--color-primary) ${score}%, rgba(var(--color-primary-rgb), 0.1) ${score}%)`;
         }
     }
 
@@ -658,8 +661,8 @@ class TodoListCore {
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
 
-        const subtasks = await this.generateSubtasksWithAI(task.title); // Appel de la fonction modifiée
-        if (subtasks.length > 0) {
+        const subtasks = await this.generateSubtasksWithAI(task.title);
+        if (subtasks && subtasks.length > 0) { 
             task.subtasks = subtasks;
             task.aiGenerated = true;
             this.saveData();
@@ -668,12 +671,11 @@ class TodoListCore {
     }
 
     async handleGenerateSubtasks() {
-        const lastTask = this.tasks.filter(t => t.column !== 'done').pop(); // Prend la dernière tâche non terminée
+        const lastTask = this.tasks.filter(t => t.column !== 'done').sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
         if (!lastTask) {
             this.showNotification('Aucune tâche active à améliorer', 'warning');
             return;
         }
-
         await this.generateSubtasksForTask(lastTask.id);
     }
 
@@ -686,43 +688,46 @@ class TodoListCore {
 
         this.showLoading(true);
         let categorizedCount = 0;
-        for (const task of unCategorizedTasks.slice(0, 3)) { // Limite à 3 pour ne pas surcharger
-            const category = await this.categorizeTaskWithAI(task.title); // Appel de la fonction modifiée
+        const taskToCategorize = unCategorizedTasks.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+        if (taskToCategorize) {
+            const category = await this.categorizeTaskWithAI(taskToCategorize.title);
             if (category && this.categories.includes(category)) {
-                task.category = category;
+                taskToCategorize.category = category;
                 categorizedCount++;
             }
         }
-
         this.showLoading(false);
+
         if (categorizedCount > 0) {
             this.saveData();
             this.updateUI();
-            this.showNotification(`${categorizedCount} tâche(s) catégorisée(s) automatiquement`, 'success');
-        } else {
-            this.showNotification('Aucune nouvelle catégorie trouvée par l\'IA pour les tâches actives.', 'info');
+            this.showNotification(`${categorizedCount} tâche(s) catégorisée(s)`, 'success');
+        } else if (taskToCategorize) {
+            this.showNotification('Aucune catégorie pertinente trouvée par l\'IA.', 'info');
         }
     }
 
     async handleSuggestPriorities() {
-        const tasksWithoutPriority = this.tasks.filter(task => !task.priority && task.column !== 'done');
-        if (tasksWithoutPriority.length === 0) {
-            this.showNotification('Toutes les tâches actives ont déjà une priorité', 'info');
+        const tasksToPrioritize = this.tasks.filter(task => task.column !== 'done' && (!task.priority || task.priority === "Normale"));
+        if (tasksToPrioritize.length === 0) {
+            this.showNotification('Toutes les tâches actives ont déjà une priorité spécifique ou sont normales.', 'info');
             return;
         }
         let suggestedCount = 0;
-        tasksWithoutPriority.forEach(task => {
-            const oldPriority = task.priority;
-            task.priority = this.suggestPriority(task.title);
-            if (task.priority !== oldPriority) {
+        const taskToSuggestFor = tasksToPrioritize.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+         if (taskToSuggestFor) {
+            const oldPriority = taskToSuggestFor.priority;
+            taskToSuggestFor.priority = this.suggestPriority(taskToSuggestFor.title);
+            if (taskToSuggestFor.priority !== oldPriority) {
                 suggestedCount++;
             }
-        });
+        }
+
         if (suggestedCount > 0) {
             this.saveData();
             this.updateUI();
-            this.showNotification(`${suggestedCount} priorité(s) suggérée(s) automatiquement`, 'success');
-        } else {
+            this.showNotification(`${suggestedCount} priorité(s) suggérée(s)`, 'success');
+        } else if (taskToSuggestFor) {
              this.showNotification('Aucune nouvelle priorité pertinente suggérée.', 'info');
         }
     }
@@ -732,82 +737,79 @@ class TodoListCore {
         const container = document.getElementById('notificationsContainer');
         if (!container) return;
 
+        const notificationId = `notif-${Date.now()}`;
         const notification = document.createElement('div');
+        notification.id = notificationId;
         notification.className = `notification ${type}`;
         
-        const icons = {
-            success: 'fa-check-circle',
-            error: 'fa-exclamation-circle',
-            warning: 'fa-exclamation-triangle',
-            info: 'fa-info-circle'
-        };
+        const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
 
         notification.innerHTML = `
             <div class="notification-content">
                 <i class="fas ${icons[type]} notification-icon"></i>
-                <span class="notification-text">${message}</span>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                <span class="notification-text">${this.escapeHtml(message)}</span>
+                <button class="notification-close" data-dismiss="${notificationId}" title="Fermer">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
         `;
-
         container.appendChild(notification);
+        notification.querySelector('.notification-close').addEventListener('click', () => notification.remove());
 
         if (duration > 0) {
-            setTimeout(() => {
-                if (notification.parentElement) {
-                    notification.remove();
-                }
-            }, duration);
+            setTimeout(() => notification.remove(), duration);
         }
-        this.playNotificationSound(type);
+        if (type !== 'info') this.playNotificationSound(type); 
     }
 
     showUndoNotification(message, task, taskIndex) {
         const container = document.getElementById('notificationsContainer');
         if (!container) return;
-
+        const notificationId = `notif-undo-${Date.now()}`;
         const notification = document.createElement('div');
-        notification.className = 'notification warning';
+        notification.id = notificationId;
+        notification.className = 'notification warning'; 
         
         notification.innerHTML = `
             <div class="notification-content">
-                <i class="fas fa-exclamation-triangle notification-icon"></i>
-                <span class.notification-text">${message}</span>
-                <button class="btn btn--sm" onclick="todoApp.restoreTask(${JSON.stringify(task).replace(/"/g, '&quot;')}, ${taskIndex}); this.parentElement.parentElement.remove();">
-                    Annuler
-                </button>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                <i class="fas fa-undo notification-icon"></i> 
+                <span class="notification-text">${this.escapeHtml(message)}</span>
+                <button class="btn btn--sm btn--secondary undo-btn" style="margin-left: auto; margin-right: 8px;">Annuler</button>
+                <button class="notification-close" data-dismiss="${notificationId}" title="Fermer">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
         `;
         container.appendChild(notification);
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 8000);
+        
+        const undoBtn = notification.querySelector('.undo-btn');
+        undoBtn.addEventListener('click', () => {
+            this.restoreTask(task, taskIndex);
+            notification.remove();
+        });
+        notification.querySelector('.notification-close').addEventListener('click', () => notification.remove());
+
+        setTimeout(() => notification.remove(), 8000); 
     }
 
     playNotificationSound(type) {
         try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (!audioContext) return; // Pas de support Web Audio API
+            if (!audioContext) return;
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
-
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
 
-            const frequencies = { success: 800, error: 300, warning: 600, info: 500 };
-            oscillator.frequency.setValueAtTime(frequencies[type] || 500, audioContext.currentTime);
-            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3); // Fade out plus prononcé
+            const frequencies = { success: 800, error: 300, warning: 500 }; 
+            if (!frequencies[type]) return; 
 
+            oscillator.type = type === 'error' ? 'sawtooth' : 'sine'; 
+            oscillator.frequency.setValueAtTime(frequencies[type], audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.08, audioContext.currentTime); 
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.4);
             oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
+            oscillator.stop(audioContext.currentTime + 0.4);
         } catch (error) {
             console.warn('Impossible de jouer le son de notification:', error);
         }
@@ -819,37 +821,35 @@ class TodoListCore {
         const input = document.getElementById('resetConfirmInput');
         const confirmBtn = document.getElementById('confirmReset');
         
-        if (!modal || !input || !confirmBtn) {
-            console.error('Éléments de reset modal non trouvés');
-            return;
-        }
+        if (!modal || !input || !confirmBtn) return;
         
         modal.classList.add('active');
         input.value = '';
         confirmBtn.disabled = true;
+        input.focus();
         
-        const validateInput = () => {
-            confirmBtn.disabled = input.value !== 'RESET';
-        };
+        const validateInput = () => confirmBtn.disabled = input.value !== 'RESET';
         
-        input.removeEventListener('input', validateInput); // Évite les doublons
+        input.removeEventListener('input', validateInput);
         input.addEventListener('input', validateInput);
-        validateInput(); // Appel initial
+        validateInput();
     }
 
     async confirmReset() {
+        const confirmBtn = document.getElementById('confirmReset');
+        confirmBtn.disabled = true; 
         const countdownEl = document.getElementById('resetCountdown');
         if (!countdownEl) return;
         
-        let countdown = 5;
-        countdownEl.textContent = `(${countdown})`; // Affichage initial
+        let countdown = 3; 
+        countdownEl.textContent = `Réinitialisation dans ${countdown}...`;
         
-        const countdownInterval = setInterval(() => {
+        const intervalId = setInterval(() => {
             countdown--;
-            countdownEl.textContent = `(${countdown})`;
-            
-            if (countdown <= 0) {
-                clearInterval(countdownInterval);
+            if (countdown > 0) {
+                countdownEl.textContent = `Réinitialisation dans ${countdown}...`;
+            } else {
+                clearInterval(intervalId);
                 this.executeReset();
             }
         }, 1000);
@@ -861,18 +861,10 @@ class TodoListCore {
             sessionStorage.clear();
             this.aiCache.clear();
             this.tasks = [];
-            this.metrics = {
-                totalTasks: 0,
-                completedToday: 0,
-                productivityScore: 0
-            };
+            this.metrics = { totalTasks: 0, completedToday: 0, productivityScore: 0 };
             
-            const modal = document.getElementById('resetModal');
-            if (modal) {
-                modal.classList.remove('active');
-            }
-            const countdownEl = document.getElementById('resetCountdown');
-            if(countdownEl) countdownEl.textContent = ''; // Effacer le compte à rebours
+            document.getElementById('resetModal')?.classList.remove('active');
+            document.getElementById('resetCountdown').textContent = '';
 
             this.updateUI();
             this.showNotification('Application réinitialisée avec succès', 'success');
@@ -884,142 +876,84 @@ class TodoListCore {
 
     // === GESTION DES ÉVÉNEMENTS ===
     setupEventListeners() {
-        console.log('Configuration des event listeners...');
-        
-        const addBtn = document.getElementById('addTaskBtn');
-        const taskInput = document.getElementById('taskInput');
-        
-        if (addBtn) {
-            addBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.handleAddTask();
-            });
-        }
-        
-        if (taskInput) {
-            taskInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    this.handleAddTask();
-                }
-            });
-        }
+        document.getElementById('addTaskBtn')?.addEventListener('click', (e) => { e.preventDefault(); this.handleAddTask(); });
+        document.getElementById('taskInput')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.handleAddTask(); }});
 
         const toolButtons = {
             voiceBtn: () => this.startVoiceRecognition(),
             aiBtn: () => this.toggleModal('aiModal'),
             searchBtn: () => this.toggleSearch(),
-            filterBtn: () => this.showNotification('Filtres avancés en développement', 'info')
+            filterBtn: () => this.showNotification('Filtres avancés bientôt disponibles !', 'info')
         };
+        Object.entries(toolButtons).forEach(([id, handler]) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); handler(); }));
 
-        Object.entries(toolButtons).forEach(([id, handler]) => {
-            const btn = document.getElementById(id);
-            if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); handler(); });
-        });
-
-        const themeToggle = document.getElementById('themeToggle');
-        if (themeToggle) themeToggle.addEventListener('click', (e) => { e.preventDefault(); this.toggleTheme(); });
-        
-        const resetBtn = document.getElementById('resetApp');
-        if (resetBtn) resetBtn.addEventListener('click', (e) => { e.preventDefault(); this.showResetModal(); });
-
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        if (sidebarToggle) sidebarToggle.addEventListener('click', (e) => { e.preventDefault(); this.toggleSidebar(); });
+        document.getElementById('themeToggle')?.addEventListener('click', (e) => { e.preventDefault(); this.toggleTheme(); });
+        document.getElementById('resetApp')?.addEventListener('click', (e) => { e.preventDefault(); this.showResetModal(); });
+        document.getElementById('sidebarToggle')?.addEventListener('click', (e) => { e.preventDefault(); this.toggleSidebar(); });
 
         const searchInput = document.getElementById('searchInput');
-        const clearSearch = document.getElementById('clearSearch');
-        
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
-                this.searchDebounceTimer = setTimeout(() => this.performSearch(e.target.value), 300);
-            });
-        }
-        
-        if (clearSearch) {
-            clearSearch.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (searchInput) searchInput.value = '';
-                this.performSearch('');
-                this.toggleSearch(); // Optionnel: fermer la recherche après l'avoir vidée
-            });
-        }
+        searchInput?.addEventListener('input', (e) => {
+            if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+            this.searchDebounceTimer = setTimeout(() => this.performSearch(e.target.value), 300);
+        });
+        document.getElementById('clearSearch')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (searchInput) searchInput.value = '';
+            this.performSearch('');
+        });
 
         document.querySelectorAll('.modal-close').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const modalId = btn.dataset.modal;
+                const modalId = btn.dataset.modal || btn.closest('.modal-overlay')?.id;
                 if (modalId) this.toggleModal(modalId);
-                else {
-                    document.querySelectorAll('.modal-overlay.active').forEach(modal => modal.classList.remove('active'));
-                }
             });
         });
 
-        const aiButtons = {
+        const aiModalButtons = {
             generateSubtasks: () => this.handleGenerateSubtasks(),
             categorizeTask: () => this.handleCategorizeTask(),
             suggestPriorities: () => this.handleSuggestPriorities()
         };
-
-        Object.entries(aiButtons).forEach(([id, handler]) => {
-            const btn = document.getElementById(id);
-            if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); handler(); });
+        Object.entries(aiModalButtons).forEach(([id, handler]) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); handler(); this.toggleModal('aiModal'); }));
+        
+        document.getElementById('cancelReset')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('resetModal')?.classList.remove('active');
+            document.getElementById('resetCountdown').textContent = '';
+            const confirmBtn = document.getElementById('confirmReset');
+            const input = document.getElementById('resetConfirmInput');
+            if(confirmBtn && input) confirmBtn.disabled = input.value !== 'RESET';
         });
-
-        const cancelReset = document.getElementById('cancelReset');
-        const confirmResetBtn = document.getElementById('confirmReset'); // Renommé pour éviter confusion
-        
-        if (cancelReset) {
-            cancelReset.addEventListener('click', (e) => {
-                e.preventDefault();
-                const modal = document.getElementById('resetModal');
-                if (modal) modal.classList.remove('active');
-                const countdownEl = document.getElementById('resetCountdown');
-                if(countdownEl) countdownEl.textContent = ''; // Effacer le compte à rebours
-                 // S'assurer que le bouton reset est réactivé si on annule pendant le compte à rebours
-                const confirmBtn = document.getElementById('confirmReset');
-                if(confirmBtn) confirmBtn.disabled = document.getElementById('resetConfirmInput').value !== 'RESET';
-
-            });
-        }
-        
-        if (confirmResetBtn) { // Utilise le nom de variable corrigé
-            confirmResetBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (!confirmResetBtn.disabled) { // Vérifie si le bouton n'est pas déjà désactivé
-                   this.confirmReset();
-                }
-            });
-        }
+        document.getElementById('confirmReset')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!e.target.disabled) this.confirmReset();
+        });
         this.setupDragAndDrop();
     }
 
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'r') {
-                e.preventDefault();
-                this.showResetModal();
-            }
-            if (e.ctrlKey && e.key.toLowerCase() === 'f') {
-                e.preventDefault();
-                this.toggleSearch();
-            }
+            const activeModal = document.querySelector('.modal-overlay.active');
+            const taskInputFocused = document.activeElement === document.getElementById('taskInput');
+            const searchInputFocused = document.activeElement === document.getElementById('searchInput');
+            const resetInputFocused = document.activeElement === document.getElementById('resetConfirmInput');
+
             if (e.key === 'Escape') {
-                let modalClosed = false;
-                document.querySelectorAll('.modal-overlay.active').forEach(modal => {
-                    modal.classList.remove('active');
-                    modalClosed = true;
-                });
-                
-                const searchSection = document.getElementById('searchSection');
-                if (searchSection && searchSection.style.display !== 'none') {
+                if (activeModal) {
+                    e.preventDefault();
+                    this.toggleModal(activeModal.id);
+                } else if (document.getElementById('searchSection')?.style.display !== 'none') {
+                    e.preventDefault();
                     this.toggleSearch();
-                    modalClosed = true;
                 }
-                // Si une modale ou la recherche a été fermée, ne pas faire autre chose
-                if (modalClosed) e.preventDefault();
             }
+            if (taskInputFocused || searchInputFocused || resetInputFocused) return;
+
+            if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'r') { e.preventDefault(); this.showResetModal(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'f') { e.preventDefault(); this.toggleSearch(); }
+            if (e.key.toLowerCase() === 'n' && !activeModal) { e.preventDefault(); document.getElementById('taskInput')?.focus(); } 
+            if (e.key.toLowerCase() === 'm' && !activeModal) { e.preventDefault(); this.toggleModal('aiModal'); } 
         });
     }
 
@@ -1030,40 +964,28 @@ class TodoListCore {
         const prioritySelect = document.getElementById('prioritySelect');
         
         if (!titleInput) return;
-        
         const title = titleInput.value.trim();
-        if (!title) {
-            this.showNotification('Veuillez saisir une tâche', 'warning');
-            return;
-        }
+        if (!title) { this.showNotification('Veuillez saisir une tâche', 'warning'); return; }
 
-        const category = categorySelect ? categorySelect.value : '';
-        const priority = prioritySelect ? prioritySelect.value : '';
-
-        await this.addTask(title, category, priority);
+        await this.addTask(title, categorySelect?.value, prioritySelect?.value);
         
         titleInput.value = '';
-        if (categorySelect) categorySelect.value = '';
-        if (prioritySelect) prioritySelect.value = '';
-        titleInput.focus(); // Remettre le focus sur l'input
+        if (categorySelect) categorySelect.selectedIndex = 0;
+        if (prioritySelect) prioritySelect.selectedIndex = 0;
+        titleInput.focus();
     }
 
     // === UTILITAIRES ===
     toggleModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.toggle('active');
-        }
+        document.getElementById(modalId)?.classList.toggle('active');
     }
 
     toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
         const toggleIcon = document.querySelector('#sidebarToggle i');
         if (sidebar) {
-            sidebar.classList.toggle('collapsed');
-            if (toggleIcon) {
-                toggleIcon.className = sidebar.classList.contains('collapsed') ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
-            }
+            const isCollapsed = sidebar.classList.toggle('collapsed');
+            if (toggleIcon) toggleIcon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
         }
     }
 
@@ -1072,124 +994,98 @@ class TodoListCore {
         if (searchSection) {
             const isVisible = searchSection.style.display !== 'none';
             searchSection.style.display = isVisible ? 'none' : 'block';
-            
-            if (!isVisible) {
-                const searchInput = document.getElementById('searchInput');
-                if (searchInput) searchInput.focus();
-            }
+            if (!isVisible) document.getElementById('searchInput')?.focus();
         }
     }
 
     toggleTheme() {
         this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-color-scheme', this.currentTheme);
-        
         const themeIcon = document.querySelector('#themeToggle i');
-        if (themeIcon) {
-            themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-        }
-        localStorage.setItem('todocore_theme', this.currentTheme); // Sauvegarder le thème
+        if (themeIcon) themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        localStorage.setItem('todocore_theme', this.currentTheme);
     }
     
-    loadTheme() { // Appeler cette fonction dans init()
+    loadTheme() {
         const savedTheme = localStorage.getItem('todocore_theme');
-        if (savedTheme) {
-            this.currentTheme = savedTheme;
-            document.documentElement.setAttribute('data-color-scheme', this.currentTheme);
-            const themeIcon = document.querySelector('#themeToggle i');
-            if (themeIcon) {
-                themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
-        } else { // Si aucun thème sauvegardé, vérifier les préférences système
-            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                this.currentTheme = 'dark';
-            } else {
-                this.currentTheme = 'light';
-            }
-            document.documentElement.setAttribute('data-color-scheme', this.currentTheme);
-            const themeIcon = document.querySelector('#themeToggle i');
-            if (themeIcon) {
-                themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
-        }
+        const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        this.currentTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-color-scheme', this.currentTheme);
+        const themeIcon = document.querySelector('#themeToggle i');
+        if (themeIcon) themeIcon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
     }
 
-
     showLoading(show) {
-        const overlay = document.getElementById('loadingOverlay');
-        if (overlay) {
-            overlay.classList.toggle('active', show);
-        }
+        document.getElementById('loadingOverlay')?.classList.toggle('active', show);
     }
 
     updateSyncStatus(synced) {
         const syncIcon = document.getElementById('syncStatus');
-        const saveStatusIcon = document.getElementById('saveStatus'); // Ajout pour l'icône de sauvegarde
+        const saveStatusIcon = document.getElementById('saveStatus');
+        const saveStatusText = saveStatusIcon?.parentElement.querySelector('span');
 
-        if (syncIcon) {
-            syncIcon.className = synced ? 'fas fa-sync-alt' : 'fas fa-sync-alt fa-spin';
-            if(synced && saveStatusIcon) { // Si synchronisé, alors aussi sauvegardé
-                 saveStatusIcon.className = 'fas fa-save';
-                 saveStatusIcon.parentElement.childNodes[1].textContent = 'Sauvegardé';
-            }
-        }
-         if (saveStatusIcon && !synced) { // Si pas synchronisé, indiquer sauvegarde en cours
-            saveStatusIcon.className = 'fas fa-hourglass-half';
-            saveStatusIcon.parentElement.childNodes[1].textContent = 'Sauvegarde...';
+        if (syncIcon) syncIcon.className = `fas fa-sync-alt ${synced ? '' : 'fa-spin'}`;
+        if (saveStatusIcon && saveStatusText) {
+            saveStatusIcon.className = `fas ${synced ? 'fa-save' : 'fa-hourglass-half'}`;
+            saveStatusText.textContent = synced ? 'Sauvegardé' : 'Sauvegarde...';
         }
     }
 
     generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substring(2);
+        return `tdc-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
     }
 
     escapeHtml(text) {
+        if (typeof text !== 'string') return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 }
 
-// Initialisation de l'application
-let todoApp;
-
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM chargé, initialisation de l\'application...');
-    todoApp = new TodoListCore();
-    todoApp.loadTheme(); // Charger le thème avant init pour éviter un flash
-    todoApp.init();
-    
-    window.todoApp = todoApp;
-    console.log('Application initialisée et exposée globalement');
+    if (typeof TodoListCore !== "undefined") {
+        window.todoApp = new TodoListCore();
+        window.todoApp.loadTheme(); 
+        window.todoApp.init();
+        console.log('Application initialisée et exposée globalement');
+    } else {
+        console.error("TodoListCore n'est pas défini. Vérifiez le chargement du script.");
+        const body = document.querySelector('body');
+        if(body) body.innerHTML = "<p style='color:red; font-family:sans-serif; padding:20px;'>Erreur critique: Impossible de charger l'application. Vérifiez la console.</p>";
+    }
 });
 
 window.addEventListener('error', (event) => {
     console.error('Erreur globale:', event.error, event.message, event.filename, event.lineno);
-    if (todoApp) {
-        todoApp.showNotification(`Erreur: ${event.message || 'Une erreur inattendue s\'est produite'}`, 'error');
+    if (window.todoApp) {
+        window.todoApp.showNotification(`Erreur: ${event.message || 'Une erreur inattendue s\'est produite'}`, 'error', 0);
     }
 });
 
 window.addEventListener('online', () => {
-    if (todoApp) {
-        todoApp.showNotification('Connexion rétablie', 'success');
+    if (window.todoApp) {
+        window.todoApp.showNotification('Connexion rétablie', 'success');
         const connectionStatusIcon = document.getElementById('connectionStatus');
-        if(connectionStatusIcon) {
+        const connectionStatusText = connectionStatusIcon?.parentElement.querySelector('span');
+        if(connectionStatusIcon && connectionStatusText) {
             connectionStatusIcon.className = 'fas fa-wifi';
-            connectionStatusIcon.parentElement.childNodes[1].textContent = 'En ligne';
+            connectionStatusText.textContent = 'En ligne';
         }
-        todoApp.updateSyncStatus(true); // On peut considérer que la synchro est à jour
+        window.todoApp.updateSyncStatus(true);
     }
 });
 
 window.addEventListener('offline', () => {
-    if (todoApp) {
-        todoApp.showNotification('Mode hors ligne activé', 'warning');
+    if (window.todoApp) {
+        window.todoApp.showNotification('Mode hors ligne activé', 'warning');
         const connectionStatusIcon = document.getElementById('connectionStatus');
-        if(connectionStatusIcon) {
-            connectionStatusIcon.className = 'fas fa-wifi-slash'; // Icône pour hors ligne
-            connectionStatusIcon.parentElement.childNodes[1].textContent = 'Hors ligne';
+        const connectionStatusText = connectionStatusIcon?.parentElement.querySelector('span');
+        if(connectionStatusIcon && connectionStatusText) {
+            connectionStatusIcon.className = 'fas fa-wifi-slash';
+            connectionStatusText.textContent = 'Hors ligne';
         }
-        todoApp.updateSyncStatus(false);
+        window.todoApp.updateSyncStatus(false);
     }
 });
